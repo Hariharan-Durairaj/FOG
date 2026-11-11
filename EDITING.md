@@ -19,6 +19,7 @@ Sections with more sub-folders get larger tiles on the screen: 3 or more sub-fol
 
 - The folder or file name is the title shown in the app, so name them as you want them to appear, for example `Flood safety.docx`.
 - To set the order, start the name with a number: `01 Safety`, `02 Storm response`. The number is not shown in the app.
+- Folder and file names cannot contain `/`. Use the look-alike character `∕` instead (copy it from this guide or from an existing folder name) and the app shows a normal `/`, for example `Anaphylaxis ∕ Allergic Reactions`.
 - Anything starting with `_` is not published. Use this for drafts, for example a folder named `_Drafts`.
 
 ## Writing documents
