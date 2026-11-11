@@ -152,6 +152,24 @@
     lightbox.showModal();
   });
 
+  /* Filter on long section pages */
+
+  const filter = $('#section-filter');
+  if (filter) {
+    const items = [...document.querySelectorAll('[data-filter]')];
+    const none = $('#filter-empty');
+    filter.addEventListener('input', () => {
+      const q = filter.value.trim().toLowerCase();
+      let shown = 0;
+      for (const item of items) {
+        const match = !q || item.dataset.filter.includes(q);
+        item.hidden = !match;
+        if (match) shown++;
+      }
+      if (none) none.hidden = shown > 0;
+    });
+  }
+
   /* Search */
 
   const form = $('#search-form');

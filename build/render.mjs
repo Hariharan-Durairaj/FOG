@@ -7,6 +7,8 @@ const icon = {
   search: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>',
   close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/></svg>',
+  folder: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2h7.5A2.5 2.5 0 0 1 21 9.5v7a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z"/></svg>',
+  chevron: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>',
   doc: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M10 13h6M10 17h6"/></svg>',
 };
 
@@ -127,13 +129,48 @@ ${sectionTiles(root, prefix, ctx)}
   return shell({ title: config.siteName, prefix, header, body, pageClass: 'home' });
 }
 
+function sectionItems(section, prefix, ctx) {
+  return [
+    ...section.sections.map((child) => {
+      const target = ctx.directDoc(child);
+      const count = child.sections.length + child.docs.length;
+      return { href: prefix + (target ? target.path : child.path), title: child.name, kind: target ? 'doc' : 'section', meta: !target && count > 1 ? `${count} topics` : '' };
+    }),
+    ...section.docs.map((doc) => ({ href: prefix + doc.path, title: doc.name, kind: 'doc', meta: '' })),
+  ];
+}
+
+function nearestCover(section, ctx) {
+  for (let s = section; s; s = s.parent) if (ctx.coverUrl(s)) return ctx.coverUrl(s);
+  return null;
+}
+
+function hero(section, prefix, ctx, count) {
+  const cover = nearestCover(section, ctx);
+  const parent = section.parent?.parent ? `<p class="hero-parent">${esc(section.parent.name)}</p>` : '';
+  return `<header class="hero" style="--accent:${ctx.accent(section)}">${cover ? `<img src="${prefix}${cover}" alt="">` : ''}<div class="hero-text">${parent}<h1>${esc(section.name)}</h1>${count ? `<p class="hero-count">${count} ${count === 1 ? 'topic' : 'topics'}</p>` : ''}</div></header>`;
+}
+
+function filterBox(section, count) {
+  if (count < 10) return '';
+  return `<div class="filter">${icon.search}<input id="section-filter" type="search" placeholder="Filter ${esc(section.name)}" aria-label="Filter topics" autocomplete="off" spellcheck="false"></div><p class="filter-empty" id="filter-empty" hidden>No matching topics</p>`;
+}
+
+function itemList(items, accent) {
+  return `<nav class="list" style="--accent:${accent}">${items
+    .map((it) => `<a class="row" href="${it.href}" data-filter="${esc(it.title.toLowerCase())}"><span class="row-icon">${it.kind === 'section' ? icon.folder : icon.doc}</span><span class="row-text"><span class="row-title">${esc(it.title)}</span>${it.meta ? `<span class="row-meta">${it.meta}</span>` : ''}</span><span class="row-chevron">${icon.chevron}</span></a>`)
+    .join('')}</nav>`;
+}
+
 export function renderSection({ section, ctx, prefix, back, images }) {
   const header = pageHeader({ prefix, back, title: section.parent?.name || config.siteName });
-  const tiles = sectionTiles(section, prefix, ctx);
-  const body = `<h1 class="page-title">${esc(section.name)}</h1>
-${tiles || (images.length ? '' : '<p class="empty">No information has been added to this section yet.</p>')}
+  const items = sectionItems(section, prefix, ctx);
+  const empty = images.length ? '' : '<p class="empty">No information has been added to this section yet.</p>';
+  const body = `${hero(section, prefix, ctx, items.length)}
+${filterBox(section, items.length)}
+${items.length ? itemList(items, ctx.accent(section)) : empty}
 ${gallery(images, prefix)}`;
-  return shell({ title: section.name, prefix, header, body });
+  return shell({ title: section.name, prefix, header, body, pageClass: 'section-page' });
 }
 
 export function renderDoc({ doc, prefix, back, backTitle, html, headings, images, updated }) {
