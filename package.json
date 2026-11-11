@@ -1,0 +1,22 @@
+{
+  "name": "sases-fog",
+  "version": "1.0.0",
+  "description": "SASES Field Operations Guide - offline web app built from a OneDrive folder",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build/build.mjs content",
+    "serve": "node build/serve.mjs dist 4173"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "cheerio": "^1.2.0",
+    "jszip": "^3.10.2",
+    "mammoth": "^1.13.0",
+    "minisearch": "^7.2.0",
+    "sharp": "^0.35.5",
+    "workbox-build": "^7.4.1"
+  }
+}

@@ -1,0 +1,176 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  actions: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  ONEDRIVE_FOLDER: FOG
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.decide.outputs.publish }}
+      key: ${{ steps.check.outputs.key }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install rclone
+        run: curl -fsSL https://rclone.org/install.sh | sudo bash
+
+      - name: Restore OneDrive session
+        uses: actions/cache/restore@v4
+        with:
+          path: .session
+          key: onedrive-session-${{ github.run_id }}
+          restore-keys: onedrive-session-
+
+      - name: Connect to OneDrive
+        env:
+          RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
+        run: |
+          if [ -z "$RCLONE_CONF" ]; then
+            echo "::error::The RCLONE_CONF repository secret is missing. See README.md."
+            exit 1
+          fi
+          mkdir -p ~/.config/rclone
+          CONF=~/.config/rclone/rclone.conf
+          KEY=$(printf '%s' "$RCLONE_CONF" | sha256sum | cut -d' ' -f1)
+          if [ -f .session/rclone.conf.enc ] \
+            && openssl enc -d -aes-256-cbc -pbkdf2 -pass "pass:$KEY" -in .session/rclone.conf.enc -out "$CONF" 2>/dev/null \
+            && rclone lsd onedrive: > /dev/null 2>&1; then
+            echo "Using the saved OneDrive session."
+          else
+            printf '%s\n' "$RCLONE_CONF" > "$CONF"
+            echo "Using the OneDrive session from the repository secret."
+          fi
+          sha256sum "$CONF" | cut -d' ' -f1 > /tmp/conf-before
+
+      - name: Download content
+        run: |
+          mkdir -p content
+          rclone sync "onedrive:${ONEDRIVE_FOLDER}" content \
+            --create-empty-src-dirs --ignore-case \
+            --filter '- ~$*' --filter '- _*/**' --filter '- _*' --filter '- .*' \
+            --filter '+ *.{docx,jpg,jpeg,png,webp}' --filter '- *'
+          echo "$(find content -type f | wc -l) files downloaded from OneDrive folder '${ONEDRIVE_FOLDER}'."
+
+      - name: Save OneDrive session
+        if: always()
+        env:
+          RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          CONF=~/.config/rclone/rclone.conf
+          [ -f "$CONF" ] && [ -f /tmp/conf-before ] || exit 0
+          if [ "$(sha256sum "$CONF" | cut -d' ' -f1)" = "$(cat /tmp/conf-before)" ]; then exit 0; fi
+          KEY=$(printf '%s' "$RCLONE_CONF" | sha256sum | cut -d' ' -f1)
+          mkdir -p .session
+          openssl enc -aes-256-cbc -pbkdf2 -salt -pass "pass:$KEY" -in "$CONF" -out .session/rclone.conf.enc
+          echo "SESSION_CHANGED=true" >> "$GITHUB_ENV"
+
+      - name: Store OneDrive session
+        if: always() && env.SESSION_CHANGED == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .session
+          key: onedrive-session-${{ github.run_id }}
+
+      - name: Remove older OneDrive sessions
+        if: always() && env.SESSION_CHANGED == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh cache list --repo "$GITHUB_REPOSITORY" --key onedrive-session- --limit 100 --json id,key \
+            --jq ".[] | select(.key != \"onedrive-session-${GITHUB_RUN_ID}\") | .id" \
+            | xargs -r -n1 gh cache delete --repo "$GITHUB_REPOSITORY" || true
+
+      - name: Check for changes
+        id: check
+        run: |
+          HASH=$( (cd content && find . -type f -print0 | sort -z | xargs -0 -r sha256sum; find . -type d | sort) | sha256sum | cut -c1-16)
+          echo "key=published-${GITHUB_SHA::12}-${HASH}" >> "$GITHUB_OUTPUT"
+
+      - name: Look up last published version
+        id: published
+        uses: actions/cache/restore@v4
+        with:
+          path: .published
+          key: ${{ steps.check.outputs.key }}
+          lookup-only: true
+
+      - name: Decide
+        id: decide
+        run: |
+          if [ "${{ steps.published.outputs.cache-hit }}" = "true" ] && [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "No changes since the last publish." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install dependencies
+        if: steps.decide.outputs.publish == 'true'
+        run: npm ci
+
+      - name: Configure Pages
+        if: steps.decide.outputs.publish == 'true'
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Build site
+        if: steps.decide.outputs.publish == 'true'
+        env:
+          SITE_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+        run: npm run build
+
+      - name: Upload site
+        if: steps.decide.outputs.publish == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Keep schedule active
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/publish.yml/enable" > /dev/null || true
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Record published version
+        run: mkdir -p .published && echo "${{ needs.build.outputs.key }}" > .published/key
+
+      - uses: actions/cache/save@v4
+        with:
+          path: .published
+          key: ${{ needs.build.outputs.key }}
