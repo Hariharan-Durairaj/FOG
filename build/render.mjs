@@ -76,9 +76,10 @@ function nearestIcon(section, ctx) {
   return null;
 }
 
-function tile({ href, title, iconUrl, size = '' }) {
+function tile({ href, title, iconUrl, size = '', count = 0 }) {
   const glyph = iconUrl ? `<span class="tile-icon" style="${maskStyle(iconUrl)}"></span>` : '';
-  return `<a class="tile ${size} ${title.length > 28 ? 'tile-long' : ''}" href="${href}">${glyph}<span class="tile-title">${esc(title)}</span></a>`;
+  const meta = count > 1 ? `<span class="tile-meta">${count} topics</span>` : '';
+  return `<a class="tile ${size} ${title.length > 28 ? 'tile-long' : ''}" href="${href}">${glyph}<span class="tile-title">${esc(title)}</span>${meta}</a>`;
 }
 
 export function sectionTiles(section, prefix, ctx) {
@@ -86,7 +87,7 @@ export function sectionTiles(section, prefix, ctx) {
     ...section.sections.map((child) => {
       const target = ctx.directDoc(child);
       const iconUrl = nearestIcon(child, ctx);
-      return tile({ href: prefix + (target ? target.path : child.path), title: child.name, iconUrl: iconUrl && prefix + iconUrl, size: tileSize(child) });
+      return tile({ href: prefix + (target ? target.path : child.path), title: child.name, iconUrl: iconUrl && prefix + iconUrl, size: tileSize(child), count: target ? 0 : child.sections.length + child.docs.length });
     }),
     ...section.docs.map((doc) => tile({ href: prefix + doc.path, title: doc.name })),
   ];
