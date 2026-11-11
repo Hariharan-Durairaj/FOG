@@ -75,7 +75,7 @@ function tile({ href, title, accent, cover, size = '', kind = 'section' }) {
     : kind === 'doc'
       ? `<span class="tile-icon">${icon.doc}</span>`
       : '';
-  return `<a class="tile ${size} ${cover ? 'has-cover' : ''}" href="${href}" style="--accent:${accent}">${visual}<span class="tile-title">${esc(title)}</span></a>`;
+  return `<a class="tile ${size} ${cover ? 'has-cover' : ''} ${title.length > 28 ? 'tile-long' : ''}" href="${href}" style="--accent:${accent}">${visual}<span class="tile-title">${esc(title)}</span></a>`;
 }
 
 export function sectionTiles(section, prefix, ctx) {
