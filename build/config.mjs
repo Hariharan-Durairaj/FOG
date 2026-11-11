@@ -2,7 +2,7 @@ export default {
   siteName: 'SASES FOG',
   shortName: 'FOG',
   description: 'SASES Field Operations Guide',
-  themeColor: '#13293d',
+  themeColor: '#1f2937',
   backgroundColor: '#f3f4f6',
   timeZone: 'Australia/Adelaide',
   locale: 'en-AU',
