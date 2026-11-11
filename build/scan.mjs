@@ -9,10 +9,11 @@ const ORDER_PREFIX = /^(\d{1,3})[\s._-]+/;
 
 const isHidden = (name) => /^[_.~]/.test(name) || /^(thumbs\.db|desktop\.ini)$/i.test(name);
 const orderOf = (name) => Number(name.match(ORDER_PREFIX)?.[1] ?? Infinity);
-// Folder and file names cannot contain "/", so look-alike slash characters are shown as a normal slash.
+// Folder and file names cannot contain "/" or ":", so look-alike characters are shown as the real ones.
 const LOOKALIKE_SLASH = /[\u2215\u2044\uFF0F]/g;
+const LOOKALIKE_COLON = /[\uA789\u2236\uFF1A]/g;
 export const displayName = (name) =>
-  name.replace(/\.(docx|jpe?g|png|webp)$/i, '').replace(ORDER_PREFIX, '').replace(LOOKALIKE_SLASH, '/').trim() || name;
+  name.replace(/\.(docx|jpe?g|png|webp)$/i, '').replace(ORDER_PREFIX, '').replace(LOOKALIKE_SLASH, '/').replace(LOOKALIKE_COLON, ':').trim() || name;
 
 const byOrder = (a, b) => orderOf(a.name) - orderOf(b.name) || a.name.localeCompare(b.name, undefined, { numeric: true });
 

@@ -8,7 +8,7 @@ export default {
   locale: 'en-AU',
 
   // Tile size on the home and section pages, based on the number of sub-folders.
-  tiles: { wideFrom: 3, largeFrom: 6 },
+  tiles: { wideFrom: 6, largeFrom: 12 },
 
   // Colours given to top-level sections in order. Sub-sections inherit their parent's colour.
   palette: [

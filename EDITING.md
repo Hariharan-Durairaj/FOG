@@ -13,13 +13,13 @@ All content in the app comes from the **FOG** folder in OneDrive. Change the fol
 | An image named `cover.jpg` or `cover.png` | The picture on that section's home tile and page banner |
 | Any other image (`.jpg`, `.png`) in a folder | Shown below the content of that folder |
 
-On the home screen, sections with more sub-folders get larger tiles: 3 or more sub-folders gives a wide tile and 6 or more a large tile. Inside a section, topics are shown as a list, with a filter box when there are 10 or more.
+On the home screen, sections with more sub-folders get larger tiles: 6 or more sub-folders gives a wide tile and 12 or more a large tile. Inside a section, topics are shown as a list, with a filter box when there are 10 or more.
 
 ## Names and order
 
 - The folder or file name is the title shown in the app, so name them as you want them to appear, for example `Flood safety.docx`.
 - To set the order, start the name with a number: `01 Safety`, `02 Storm response`. The number is not shown in the app.
-- Folder and file names cannot contain `/`. Use the look-alike character `∕` instead (copy it from this guide or from an existing folder name) and the app shows a normal `/`, for example `Anaphylaxis ∕ Allergic Reactions`.
+- Folder and file names cannot contain `/` or `:`. Use the look-alike characters `∕` and `꞉` instead (copy them from this guide or from an existing folder name) and the app shows a normal `/` or `:`, for example `Anaphylaxis ∕ Allergic Reactions` or `Awareness꞉ Buses and Coaches`.
 - Anything starting with `_` is not published. Use this for drafts, for example a folder named `_Drafts`.
 
 ## Writing documents
