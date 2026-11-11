@@ -35,4 +35,4 @@ npm run serve
 
 Then open http://localhost:4173.
 
-Site name, colours, tile sizes and time zone are set in `build/config.mjs`.
+Site name, tile sizes and time zone are set in `build/config.mjs`. Colours are set at the top of `src/assets/styles.css`.

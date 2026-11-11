@@ -10,7 +10,7 @@ All content in the app comes from the **FOG** folder in OneDrive. Change the fol
 | A folder inside that folder | An entry in that section's list |
 | A Word document (`.docx`) | A page with the document's content |
 | A folder with only one Word document and no sub-folders | Tapping its tile opens the document straight away |
-| An image named `cover.jpg` or `cover.png` | The picture on that section's home tile and page banner |
+| An icon named `icon.svg` or `icon.png` | The icon on that section's tile and page header |
 | Any other image (`.jpg`, `.png`) in a folder | Shown below the content of that folder |
 
 On the home screen, sections with more sub-folders get larger tiles: 6 or more sub-folders gives a wide tile and 12 or more a large tile. Inside a section, topics are shown as a list, with a filter box when there are 10 or more.
@@ -36,11 +36,16 @@ Write in Word as normal. The app keeps:
 
 Fonts, font sizes and page layout are adjusted to suit phone screens.
 
+## Icons
+
+- Each top-level folder can have an icon file named `icon.svg` or `icon.png`. Sub-folders without their own icon use their parent's icon.
+- Icons are shown in white, so use a simple outline icon with a transparent background.
+- Free icons in SVG format are available from [Tabler Icons](https://tabler.io/icons). Download the SVG and rename it to `icon.svg`.
+
 ## Images
 
 - Use JPG or PNG. iPhone photos in HEIC format must be converted first.
 - Large photos are resized automatically, so there is no need to shrink them.
-- A good tile picture is landscape, with the main subject in the middle.
 
 ## Checking your changes
 

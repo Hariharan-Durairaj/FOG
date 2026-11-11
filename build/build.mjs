@@ -30,20 +30,35 @@ async function write(file, data) {
 
 const prefixFor = (urlPath) => '../'.repeat(urlPath.split('/').filter(Boolean).length);
 
+// SVG icons come from editors, so remove anything that could run as script.
+const cleanSvg = (svg) =>
+  svg
+    .replace(/<script[\s\S]*?<\/script\s*>/gi, '')
+    .replace(/<foreignObject[\s\S]*?<\/foreignObject\s*>/gi, '')
+    .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*')/gi, '')
+    .replace(/(href\s*=\s*["'])\s*javascript:[^"']*/gi, '$1#');
+
 async function processImages(section) {
-  const coverUrl = new Map();
+  const iconUrl = new Map();
   const galleries = new Map();
+  await fs.mkdir(path.join(DIST, 'images'), { recursive: true });
   for (const s of allSections(section)) {
-    const rel = s.path || 'home/';
-    if (s.cover) {
+    if (s.icon) {
       try {
-        const name = `images/${slugify(rel)}-cover-${sha(await fs.readFile(s.cover), 8)}.webp`;
-        const { width, height, quality } = config.images.cover;
-        await fs.mkdir(path.join(DIST, 'images'), { recursive: true });
-        await sharp(s.cover).rotate().resize(width, height, { fit: 'cover', position: 'attention' }).webp({ quality }).toFile(path.join(DIST, name));
-        coverUrl.set(s, name);
+        const data = await fs.readFile(s.icon);
+        if (/\.svg$/i.test(s.icon)) {
+          const svg = data.toString('utf8');
+          if (!/<svg[\s>]/i.test(svg)) throw new Error('not a valid SVG file');
+          const name = `images/icon-${sha(data, 12)}.svg`;
+          await fs.writeFile(path.join(DIST, name), cleanSvg(svg));
+          iconUrl.set(s, name);
+        } else {
+          const name = `images/icon-${sha(data, 12)}.png`;
+          await sharp(data).resize(128, 128, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toFile(path.join(DIST, name));
+          iconUrl.set(s, name);
+        }
       } catch (error) {
-        warn(path.relative(CONTENT, s.cover), `cover image could not be read (${error.message})`);
+        warn(path.relative(CONTENT, s.icon), `icon could not be read (${error.message})`);
       }
     }
     const list = [];
@@ -62,7 +77,7 @@ async function processImages(section) {
     }
     galleries.set(s, list);
   }
-  return { coverUrl, galleries };
+  return { iconUrl, galleries };
 }
 
 async function copyStatic() {
@@ -100,14 +115,8 @@ async function main() {
   await fs.mkdir(DIST, { recursive: true });
   await copyStatic();
 
-  const { coverUrl, galleries } = await processImages(root);
-  const topLevel = root.sections;
-  const accent = (section) => {
-    const top = trail(section)[0];
-    const index = Math.max(0, topLevel.indexOf(top));
-    return config.palette[index % config.palette.length];
-  };
-  const ctx = { accent, directDoc, coverUrl: (s) => coverUrl.get(s) };
+  const { iconUrl, galleries } = await processImages(root);
+  const ctx = { directDoc, iconUrl: (s) => iconUrl.get(s) };
 
   const searchDocs = [];
   let latest = new Date(0);

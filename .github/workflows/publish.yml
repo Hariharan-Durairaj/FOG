@@ -71,7 +71,7 @@ jobs:
           rclone sync "onedrive:${ONEDRIVE_FOLDER}" content \
             --create-empty-src-dirs --ignore-case \
             --filter '- ~$*' --filter '- _*/**' --filter '- _*' --filter '- .*' \
-            --filter '+ *.{docx,jpg,jpeg,png,webp}' --filter '- *'
+            --filter '+ *.{docx,jpg,jpeg,png,webp,svg}' --filter '- *'
           echo "$(find content -type f | wc -l) files downloaded from OneDrive folder '${ONEDRIVE_FOLDER}'."
 
       - name: Save OneDrive session

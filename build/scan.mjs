@@ -4,7 +4,8 @@ import { slugify, uniqueSlug } from './util.mjs';
 
 const DOC = /\.docx$/i;
 const IMAGE = /\.(jpe?g|png|webp)$/i;
-const COVER = /^cover\.(jpe?g|png|webp)$/i;
+const ICON = /^icon\.(svg|png)$/i;
+const OLD_COVER = /^cover\.(jpe?g|png|webp)$/i;
 const ORDER_PREFIX = /^(\d{1,3})[\s._-]+/;
 
 const isHidden = (name) => /^[_.~]/.test(name) || /^(thumbs\.db|desktop\.ini)$/i.test(name);
@@ -19,7 +20,7 @@ const byOrder = (a, b) => orderOf(a.name) - orderOf(b.name) || a.name.localeComp
 
 /**
  * Reads the content folder into a tree of sections.
- * Every folder is a section; Word documents are pages; cover.* is the tile image;
+ * Every folder is a section; Word documents are pages; icon.svg or icon.png is the tile icon;
  * other images make up the section gallery.
  */
 export async function scanContent(root) {
@@ -35,7 +36,7 @@ export async function scanContent(root) {
       sections: [],
       docs: [],
       images: [],
-      cover: null,
+      icon: null,
     };
 
     for (const entry of entries) {
@@ -45,8 +46,10 @@ export async function scanContent(root) {
         const name = displayName(entry.name);
         const { mtime } = await fs.stat(full);
         section.docs.push({ name, file: full, source: entry.name, slug: uniqueSlug(slugify(name), used), mtime, section });
-      } else if (COVER.test(entry.name)) {
-        section.cover = full;
+      } else if (ICON.test(entry.name)) {
+        section.icon = full;
+      } else if (OLD_COVER.test(entry.name)) {
+        continue;
       } else if (IMAGE.test(entry.name)) {
         section.images.push({ name: displayName(entry.name), file: full, source: entry.name });
       }
