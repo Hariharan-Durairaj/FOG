@@ -116,23 +116,7 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 
 .bar a.icon-button:active, .icon-button:active { background: var(--brand-press); }
 
-.install-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 40px;
-  padding: 0 14px 0 10px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--button);
-  color: var(--button-ink);
-  font: inherit;
-  font-size: .9rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.install-button svg { width: 20px; height: 20px; }
+.install-button svg { width: 24px; height: 24px; }
 
 .install-button[hidden] { display: none; }
 

@@ -108,7 +108,7 @@ export function renderHome({ root, ctx, updated }) {
   const prefix = '';
   const header = `<header class="home-bar">
   <h1 class="brand">${esc(config.siteName)}</h1>
-  <button class="install-button" type="button" id="install-button" hidden>${icon.download}<span>Download app</span></button>
+  <button class="icon-button install-button" type="button" id="install-button" aria-label="Download app" title="Download app" hidden>${icon.download}</button>
 </header>`;
   const body = `<form class="search" role="search" id="search-form" autocomplete="off">
   <label class="visually-hidden" for="search-input">Search</label>

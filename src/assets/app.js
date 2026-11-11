@@ -102,10 +102,11 @@
       <li>Open this page in Chrome or Edge.</li>
       <li>Select the install icon at the right of the address bar, or open the browser menu and choose <strong>Install</strong>.</li>
     </ol>
-    <p>On a phone, open this page and tap <strong>Download app</strong>.</p>`;
+    <p>On a phone, open this page and tap the download icon at the top.</p>`;
   }
 
-  if (installButton && !isStandalone) {
+  const isPhone = isIOS || isAndroid || matchMedia('(pointer: coarse)').matches;
+  if (installButton && !isStandalone && isPhone) {
     installButton.hidden = false;
 
     addEventListener('beforeinstallprompt', (event) => {
