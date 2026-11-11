@@ -43,7 +43,17 @@ async function tagRunFormatting(buffer) {
   if (!docFile || !stylesFile) return { buffer, styleMap: [] };
 
   const created = new Map();
-  const xml = (await docFile.async('string')).replace(/<w:rPr>([\s\S]*?)<\/w:rPr>/g, (whole, inner) => {
+  const cellFills = new Set();
+  const withCells = (await docFile.async('string')).replace(/<w:tc>([\s\S]*?)<\/w:tc>/g, (whole, inner) => {
+    const fill = inner.match(/<w:tcPr>[\s\S]*?<w:shd\b[^>]*\bw:fill="([0-9A-Fa-f]{6})"[\s\S]*?<\/w:tcPr>/)?.[1];
+    if (isPlainFill(fill)) return whole;
+    const id = `FogCell${fill.toLowerCase()}`;
+    cellFills.add(id);
+    const marked = inner.replace(/<w:p(\s[^>]*)?>(?!<w:pPr>)/g, `<w:p$1><w:pPr><w:pStyle w:val="${id}"/></w:pPr>`)
+      .replace(/<w:pPr>(?![\s\S]{0,40}?<w:pStyle)/g, `<w:pPr><w:pStyle w:val="${id}"/>`);
+    return `<w:tc>${marked}</w:tc>`;
+  });
+  const xml = withCells.replace(/<w:rPr>([\s\S]*?)<\/w:rPr>/g, (whole, inner) => {
     if (inner.includes('<w:rStyle')) return whole;
     const colour = inner.match(/<w:color\b[^>]*\bw:val="([0-9A-Fa-f]{6}|auto)"/)?.[1];
     const fill = inner.match(/<w:shd\b[^>]*\bw:fill="([0-9A-Fa-f]{6}|auto)"/)?.[1];
@@ -54,18 +64,22 @@ async function tagRunFormatting(buffer) {
     created.set(id, { colour: c, fill: f });
     return `<w:rPr><w:rStyle w:val="${id}"/>${inner}</w:rPr>`;
   });
-  if (!created.size) return { buffer, styleMap: [] };
+  if (!created.size && !cellFills.size) return { buffer, styleMap: [] };
 
-  const styleXml = [...created.keys()]
-    .map((id) => `<w:style w:type="character" w:customStyle="1" w:styleId="${id}"><w:name w:val="${id}"/></w:style>`)
-    .join('');
+  const styleXml = [
+    ...[...created.keys()].map((id) => `<w:style w:type="character" w:customStyle="1" w:styleId="${id}"><w:name w:val="${id}"/></w:style>`),
+    ...[...cellFills].map((id) => `<w:style w:type="paragraph" w:customStyle="1" w:styleId="${id}"><w:name w:val="${id}"/><w:basedOn w:val="Normal"/></w:style>`),
+  ].join('');
   const styles = (await stylesFile.async('string')).replace('</w:styles>', `${styleXml}</w:styles>`);
   zip.file('word/document.xml', xml);
   zip.file('word/styles.xml', styles);
 
   return {
     buffer: await zip.generateAsync({ type: 'nodebuffer' }),
-    styleMap: [...created.keys()].map((id) => `r[style-name='${id}'] => span.${id}`),
+    styleMap: [
+      ...[...created.keys()].map((id) => `r[style-name='${id}'] => span.${id}`),
+      ...[...cellFills].map((id) => `p[style-name='${id}'] => p.${id}:fresh`),
+    ],
     formats: created,
   };
 }
@@ -111,7 +125,7 @@ export async function convertDocx(file, { distDir, title }) {
   );
 
   for (const message of result.messages) {
-    if (message.type === 'warning' && !/FogFmt|Unrecognised (paragraph|run) style/.test(message.message)) {
+    if (message.type === 'warning' && !/FogFmt|FogCell|Unrecognised (paragraph|run) style/.test(message.message)) {
       warnings.push(message.message);
     }
   }
@@ -128,6 +142,13 @@ export async function convertDocx(file, { distDir, title }) {
     if (format.colour) css.push(`color:#${format.colour}`);
     if (format.fill) css.push(`background-color:#${format.fill}`);
     $(el).removeAttr('class').attr('style', css.join(';'));
+  });
+
+  // Table cell shading
+  article.find('p[class^="FogCell"]').each((_, el) => {
+    const fill = $(el).attr('class').slice('FogCell'.length);
+    $(el).closest('td, th').attr('style', `background-color:#${fill}`);
+    $(el).removeAttr('class');
   });
 
   // Highlights
