@@ -57,6 +57,16 @@ Tips:
 - Fonts, font sizes, page margins, headers and footers are not carried over. The app uses its own layout.
 - Insert pictures as PNG or JPEG. Drawings pasted from other programs (EMF, WMF) and iPhone HEIC photos cannot be shown and are left out.
 
+## Notes for future editors
+
+You can leave instructions inside a document that never appear in the app or in its search:
+
+- **Editor notes:** start a paragraph with `Editor note:` (for example `Editor note: Keep this table to three columns so it fits on a phone.`). The whole paragraph is left out of the app. `Note for editors:` also works.
+- **Word comments:** comments added with *Review → New Comment* are never shown in the app.
+- **Hidden text:** text formatted as hidden in Word (*Font → Hidden*) is left out.
+
+Put editor notes at the top of the document so the next editor sees them first. Format them in grey italics so they stand out in Word.
+
 ## Icons
 
 - Name the file `icon.svg` (preferred) or `icon.png` and put it in the section's folder.

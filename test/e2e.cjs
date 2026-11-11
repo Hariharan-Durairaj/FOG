@@ -52,7 +52,19 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
     path.join(content, '27 Deep ∕ Nested꞉ a very long section name to check wrapping/icon.svg'),
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" onload="alert(1)"><script>alert(1)</script><foreignObject><b>x</b></foreignObject><a href="javascript:alert(1)"><circle cx="12" cy="12" r="9" fill="red"/></a></svg>',
   );
+  {
+    const file = path.join(content, '02 First Aid/08 Asthma/Asthma.docx');
+    const zip = await JSZip.loadAsync(fs.readFileSync(file));
+    const xml = await zip.file('word/document.xml').async('string');
+    zip.file('word/document.xml', xml.replace(/<w:body>/, '<w:body><w:p><w:r><w:t xml:space="preserve">Editor note: EDNOTECHECK keep this short.</w:t></w:r></w:p><w:p><w:r><w:rPr><w:vanish/></w:rPr><w:t>HIDDENCHECK</w:t></w:r><w:r><w:t>Visible after hidden.</w:t></w:r></w:p>'));
+    fs.writeFileSync(file, await zip.generateAsync({ type: 'nodebuffer' }));
+  }
   const report = build();
+  {
+    const page = fs.readFileSync(path.join(dist, 'first-aid/asthma/index.html'), 'utf8');
+    const search = fs.readFileSync(path.join(dist, 'search.json'), 'utf8');
+    check(!/EDNOTECHECK|HIDDENCHECK/.test(page + search) && page.includes('Visible after hidden.'), 'editor notes and hidden text stay out of the site and search');
+  }
   check(/3 warnings|[1-9] warning/.test(report), 'bad files are skipped with warnings', report.trim().split('\n').pop());
   const icon = fs.readdirSync(path.join(dist, 'icons')).find((f) => /^s-.*\.svg$/.test(f));
   const iconText = icon ? fs.readFileSync(path.join(dist, 'icons', icon), 'utf8') : '';

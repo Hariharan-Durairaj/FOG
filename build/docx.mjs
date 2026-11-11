@@ -34,6 +34,7 @@ const STYLE_MAP = [
 ];
 
 const HEX = /^[0-9a-f]{6}$/i;
+const EDITOR_NOTE = /^\s*(editor'?s?\s+notes?|notes?\s+(for|to)\s+editors?)\s*[:\-\u2013\u2014]/i;
 const colourOf = (xml, tag, attr) => {
   const value = xml.match(new RegExp(`<w:${tag}\\b[^>]*\\bw:${attr}="([^"]+)"`))?.[1];
   return value && HEX.test(value) ? value.toLowerCase() : '';
@@ -61,6 +62,13 @@ async function keepColours(buffer) {
   let marked = false;
   let xml = await docFile.async('string');
   xml = xml.replace(/<w:p(\s[^>]*)?\/>/g, '<w:p$1></w:p>');
+
+  // Text formatted as hidden in Word is for editors only
+  const hiddenBefore = xml.length;
+  xml = xml.replace(/<w:r(?:\s[^>]*)?>(?:(?!<\/w:r>)[\s\S])*?<\/w:r>/g, (run) =>
+    /<w:rPr>(?:(?!<\/w:rPr>)[\s\S])*<w:vanish(?:\s+w:val="(?:1|true|on)")?\s*\/>/.test(run) ? '' : run,
+  );
+  if (xml.length !== hiddenBefore) marked = true;
 
   // Table cell shading
   xml = xml.replace(/<w:tc>([\s\S]*?)<\/w:tc>/g, (whole, inner) => {
@@ -190,6 +198,14 @@ export async function convertDocx(file, { mediaDir, title }) {
     if (!src || !size) return void $(el).remove();
     $(el).attr({ width: size.width, height: size.height, loading: 'lazy', decoding: 'async' });
     if (!$(el).attr('alt')) $(el).attr('alt', '');
+  });
+
+  // Notes for editors ("Editor note: …") stay in Word only. Word comments are already left out.
+  article.find('p').each((_, el) => {
+    if (EDITOR_NOTE.test($(el).text())) $(el).remove();
+  });
+  article.find('blockquote').each((_, el) => {
+    if (!$(el).text().trim() && !$(el).find('img').length) $(el).remove();
   });
 
   // A Title that repeats the file name would show the page title twice
