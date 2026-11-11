@@ -1,0 +1,6 @@
+# Add inside the existing *.hariharandurairaj.uk site block on the Caddy container.
+@fog host fog.hariharandurairaj.uk
+handle @fog {
+	encode zstd gzip
+	reverse_proxy <server address>:8043
+}

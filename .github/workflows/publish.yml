@@ -17,9 +17,6 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
-env:
-  ONEDRIVE_FOLDER: FOG
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -37,6 +34,11 @@ jobs:
       - name: Install rclone
         run: curl -fsSL https://rclone.org/install.sh | sudo bash
 
+      - name: Read settings
+        run: echo "ONEDRIVE_FOLDER=$(node -e 'import(process.argv[1]).then(m => console.log(m.default.oneDriveFolder))' "$PWD/config.mjs")" >> "$GITHUB_ENV"
+
+      # rclone renews the OneDrive sign-in and writes it back to its config file.
+      # The renewed config is kept, encrypted, in the Actions cache for the next run.
       - name: Restore OneDrive session
         uses: actions/cache/restore@v4
         with:
@@ -71,14 +73,14 @@ jobs:
           rclone sync "onedrive:${ONEDRIVE_FOLDER}" content \
             --create-empty-src-dirs --ignore-case \
             --filter '- ~$*' --filter '- _*/**' --filter '- _*' --filter '- .*' \
-            --filter '+ *.{docx,jpg,jpeg,png,webp,svg}' --filter '- *'
+            --filter '+ *.{docx,jpg,jpeg,png,webp,svg}' --filter '- *' \
+            --retries 3 --low-level-retries 5
           echo "$(find content -type f | wc -l) files downloaded from OneDrive folder '${ONEDRIVE_FOLDER}'."
 
       - name: Save OneDrive session
         if: always()
         env:
           RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
-          GH_TOKEN: ${{ github.token }}
         run: |
           CONF=~/.config/rclone/rclone.conf
           [ -f "$CONF" ] && [ -f /tmp/conf-before ] || exit 0
@@ -104,6 +106,7 @@ jobs:
             --jq ".[] | select(.key != \"onedrive-session-${GITHUB_RUN_ID}\") | .id" \
             | xargs -r -n1 gh cache delete --repo "$GITHUB_REPOSITORY" || true
 
+      # Scheduled runs publish only when the content or the app changed.
       - name: Check for changes
         id: check
         run: |
@@ -140,8 +143,10 @@ jobs:
       - name: Build site
         if: steps.decide.outputs.publish == 'true'
         env:
-          SITE_BASE_PATH: ${{ steps.pages.outputs.base_path }}
-        run: npm run build
+          FOG_BASE_PATH: ${{ steps.pages.outputs.base_path }}/
+        run: |
+          npm run build
+          node -e "const r=require('./dist/build-report.json'); console.log(r.sections+' sections, '+r.documents+' documents'); for (const w of r.warnings) console.log('::warning::'+w.file+': '+w.message)"
 
       - name: Upload site
         if: steps.decide.outputs.publish == 'true'

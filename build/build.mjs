@@ -1,211 +1,178 @@
+// Builds the static site.  Usage: node build/build.mjs <content folder> [output folder]
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import sharp from 'sharp';
-import MiniSearch from 'minisearch';
-import { generateSW } from 'workbox-build';
-import config from './config.mjs';
-import { convertDocx } from './docx.mjs';
-import { scanContent, allSections, trail, directDoc } from './scan.mjs';
-import { renderHome, renderSection, renderDoc, renderNotFound } from './render.mjs';
-import { exists, sha, slugify } from './util.mjs';
+import config from '../config.mjs';
+import { scan, sectionsOf, trail, iconOf } from './scan.mjs';
+import { convertDocx, saveImage } from './docx.mjs';
+import { sectionIcon, writeAppIcons } from './icons.mjs';
+import { setSiteUpdated, homePage, sectionPage, docPage, notFoundPage, manifest } from './render.mjs';
+import { formatDate, hash } from './util.mjs';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const CONTENT = path.resolve(process.argv[2] || path.join(ROOT, 'content'));
-const DIST = path.resolve(process.argv[3] || path.join(ROOT, 'dist'));
-const BASE_PATH = (process.env.SITE_BASE_PATH || '').replace(/\/+$/, '');
-const inCI = Boolean(process.env.GITHUB_ACTIONS);
-
+const here = path.dirname(fileURLToPath(import.meta.url));
+const contentDir = path.resolve(process.argv[2] || 'content');
+const outDir = path.resolve(process.argv[3] || 'dist');
+const basePath = process.env.FOG_BASE_PATH || '/';
+const workDir = `${outDir}.new`;
 const warnings = [];
-const warn = (where, message) => warnings.push({ where, message });
+const warn = (file, message) => {
+  const where = path.relative(contentDir, file);
+  warnings.push({ file: where, message });
+  console.warn(`  warning: ${where}: ${message}`);
+};
 
-const dateFormat = new Intl.DateTimeFormat(config.locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: config.timeZone });
-const formatDate = (date) => dateFormat.format(date);
+async function inBatches(items, size, task) {
+  const queue = [...items];
+  await Promise.all(
+    Array.from({ length: size }, async () => {
+      for (let item = queue.shift(); item !== undefined; item = queue.shift()) await task(item);
+    }),
+  );
+}
 
 async function write(file, data) {
-  const out = path.join(DIST, file);
-  await fs.mkdir(path.dirname(out), { recursive: true });
-  await fs.writeFile(out, data);
+  const full = path.join(workDir, file);
+  await fs.mkdir(path.dirname(full), { recursive: true });
+  await fs.writeFile(full, data);
 }
 
-const prefixFor = (urlPath) => '../'.repeat(urlPath.split('/').filter(Boolean).length);
-
-// SVG icons come from editors, so remove anything that could run as script.
-const cleanSvg = (svg) =>
-  svg
-    .replace(/<script[\s\S]*?<\/script\s*>/gi, '')
-    .replace(/<foreignObject[\s\S]*?<\/foreignObject\s*>/gi, '')
-    .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*')/gi, '')
-    .replace(/(href\s*=\s*["'])\s*javascript:[^"']*/gi, '$1#');
-
-async function processImages(section) {
-  const iconUrl = new Map();
-  const galleries = new Map();
-  await fs.mkdir(path.join(DIST, 'images'), { recursive: true });
-  for (const s of allSections(section)) {
-    if (s.icon) {
-      try {
-        const data = await fs.readFile(s.icon);
-        if (/\.svg$/i.test(s.icon)) {
-          const svg = data.toString('utf8');
-          if (!/<svg[\s>]/i.test(svg)) throw new Error('not a valid SVG file');
-          const name = `images/icon-${sha(data, 12)}.svg`;
-          await fs.writeFile(path.join(DIST, name), cleanSvg(svg));
-          iconUrl.set(s, name);
-        } else {
-          const name = `images/icon-${sha(data, 12)}.png`;
-          await sharp(data).resize(128, 128, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toFile(path.join(DIST, name));
-          iconUrl.set(s, name);
-        }
-      } catch (error) {
-        warn(path.relative(CONTENT, s.icon), `icon could not be read (${error.message})`);
-      }
-    }
-    const list = [];
-    for (const img of s.images) {
-      try {
-        const name = `images/${sha(await fs.readFile(img.file))}.webp`;
-        const out = path.join(DIST, name);
-        if (!(await exists(out))) {
-          await sharp(img.file).rotate().resize({ width: config.images.maxWidth, withoutEnlargement: true }).webp({ quality: config.images.quality }).toFile(out);
-        }
-        const { width, height } = await sharp(out).metadata();
-        list.push({ name: img.name, url: name, width, height });
-      } catch (error) {
-        warn(path.relative(CONTENT, img.file), `image could not be read (${error.message})`);
-      }
-    }
-    galleries.set(s, list);
+async function listFiles(dir, prefix = '') {
+  const out = [];
+  for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
+    const rel = `${prefix}${entry.name}`;
+    if (entry.isDirectory()) out.push(...(await listFiles(path.join(dir, entry.name), `${rel}/`)));
+    else out.push(rel);
   }
-  return { iconUrl, galleries };
+  return out;
 }
 
-async function copyStatic() {
-  await fs.cp(path.join(ROOT, 'src/assets'), path.join(DIST, 'assets'), { recursive: true });
-  await fs.cp(path.join(ROOT, 'src/icons'), path.join(DIST, 'icons'), { recursive: true });
-  await fs.copyFile(path.join(ROOT, 'node_modules/minisearch/dist/umd/index.js'), path.join(DIST, 'assets/minisearch.js'));
-  const manifest = {
-    name: config.siteName,
-    short_name: config.shortName,
-    description: config.description,
-    id: './',
-    start_url: './',
-    scope: './',
-    display: 'standalone',
-    orientation: 'portrait',
-    background_color: config.backgroundColor,
-    theme_color: config.themeColor,
-    icons: [
-      { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-      { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-      { src: 'icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-    ],
-  };
-  await write('manifest.webmanifest', JSON.stringify(manifest, null, 2));
-}
-
-async function main() {
-  if (!(await exists(CONTENT))) throw new Error(`Content folder not found: ${CONTENT}`);
-  const root = await scanContent(CONTENT);
-  if (!root.sections.length && !root.docs.length) {
-    throw new Error('The content folder is empty. Add at least one folder containing a Word document.');
-  }
-
-  await fs.rm(DIST, { recursive: true, force: true });
-  await fs.mkdir(DIST, { recursive: true });
-  await copyStatic();
-
-  const { iconUrl, galleries } = await processImages(root);
-  const ctx = { directDoc, iconUrl: (s) => iconUrl.get(s) };
-
-  const searchDocs = [];
-  let latest = new Date(0);
-  let pages = 0;
-
-  for (const section of allSections(root)) {
-    if (!section.parent) continue;
-    const prefix = prefixFor(section.path);
-    const back = prefix + (section.parent.path || '');
-    const crumbs = trail(section).map((s) => s.name);
-    if (directDoc(section)) continue;
-    searchDocs.push({ id: `s:${section.path}`, kind: 'section', title: section.name, trail: crumbs.slice(0, -1).join(' › '), url: section.path, text: '' });
-    await write(`${section.path}index.html`, renderSection({ section, ctx, prefix, back, images: galleries.get(section) || [] }));
-    pages++;
-  }
-
-  for (const section of allSections(root)) {
-    for (const doc of section.docs) {
-      const prefix = prefixFor(doc.path);
-      const direct = directDoc(section) === doc;
-      const backSection = direct ? section.parent : section;
-      const relSource = path.relative(CONTENT, doc.file);
-      let converted;
-      try {
-        converted = await convertDocx(doc.file, { distDir: DIST, title: doc.name });
-        for (const message of converted.warnings) warn(relSource, message);
-      } catch (error) {
-        warn(relSource, `document could not be read (${error.message})`);
-        converted = { html: '<p>This document could not be displayed.</p>', text: '', headings: [] };
-      }
-      if (doc.mtime > latest) latest = doc.mtime;
-      await write(
-        `${doc.path}index.html`,
-        renderDoc({
-          doc,
-          prefix,
-          back: prefix + (backSection?.path || ''),
-          backTitle: backSection?.name || config.siteName,
-          html: converted.html,
-          headings: converted.headings,
-          images: direct ? galleries.get(section) || [] : [],
-          updated: formatDate(doc.mtime),
-        }),
-      );
-      pages++;
-      const crumbs = trail(section).map((s) => s.name);
-      const label = direct ? crumbs.slice(0, -1) : crumbs;
-      searchDocs.push({ id: `d:${doc.path}`, kind: 'doc', title: doc.name, trail: label.join(' › '), url: doc.path, text: converted.text });
-    }
-  }
-
-  const updated = formatDate(latest.getTime() ? latest : new Date());
-  await write('index.html', renderHome({ root, ctx, updated }));
-  await write('404.html', renderNotFound().replaceAll('href="./', `href="${BASE_PATH}/`).replaceAll('src="./', `src="${BASE_PATH}/`));
-
-  const mini = new MiniSearch({ fields: ['title', 'trail', 'text'], storeFields: ['kind', 'title', 'trail', 'url', 'text'] });
-  mini.addAll(searchDocs);
-  await write('search-index.json', JSON.stringify(mini));
-
-  await generateSW({
-    globDirectory: DIST,
-    globPatterns: ['**/*.{html,js,css,json,webmanifest,png,webp,svg}'],
-    globIgnores: ['build-report.json'],
-    swDest: path.join(DIST, 'sw.js'),
-    directoryIndex: 'index.html',
-    cleanupOutdatedCaches: true,
-    clientsClaim: true,
-    skipWaiting: true,
-    navigateFallback: '404.html',
-    maximumFileSizeToCacheInBytes: 15 * 1024 * 1024,
-    sourcemap: false,
-    inlineWorkboxRuntime: true,
-  });
-
-  const report = { updated, pages: pages + 1, documents: searchDocs.filter((d) => d.kind === 'doc').length, warnings };
-  await write('build-report.json', JSON.stringify(report, null, 2));
-
-  console.log(`Built ${report.pages} pages from ${report.documents} documents. Content last changed ${updated}.`);
-  for (const w of warnings) {
-    console.log(inCI ? `::warning title=${w.where}::${w.message}` : `Warning: ${w.where}: ${w.message}`);
-  }
-  if (process.env.GITHUB_STEP_SUMMARY) {
-    const lines = [`### Site built`, `${report.pages} pages from ${report.documents} documents. Content last changed ${updated}.`];
-    if (warnings.length) lines.push('', '**Check these files:**', ...warnings.map((w) => `- \`${w.where}\`: ${w.message}`));
-    await fs.appendFile(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
-  }
-}
-
-main().catch((error) => {
-  console.error(inCI ? `::error::${error.message}` : `Error: ${error.message}`);
+const started = Date.now();
+const tree = await scan(contentDir);
+const sections = [...sectionsOf(tree)].filter((s) => s.parent);
+const docs = [...sectionsOf(tree)].flatMap((s) => s.docs);
+if (!sections.length && !docs.length) {
+  console.error(`No content found in ${contentDir}. The existing site was left unchanged.`);
   process.exit(1);
+}
+
+await fs.rm(workDir, { recursive: true, force: true });
+await fs.mkdir(workDir, { recursive: true });
+const mediaDir = path.join(workDir, 'media');
+
+// Icons (sub-folders without one use their parent's)
+const iconCache = new Map();
+const icons = new Map();
+for (const section of sections) {
+  const file = iconOf(section);
+  if (!file) continue;
+  if (!iconCache.has(file)) {
+    try {
+      iconCache.set(file, await sectionIcon(file, workDir));
+    } catch (error) {
+      warn(file, `the icon could not be read (${error.message})`);
+      iconCache.set(file, null);
+    }
+  }
+  icons.set(section, iconCache.get(file));
+}
+
+// Documents
+const converted = new Map();
+await inBatches(docs, 4, async (doc) => {
+  try {
+    const result = await convertDocx(doc.file, { mediaDir, title: doc.title });
+    for (const message of result.warnings) warn(doc.file, message);
+    converted.set(doc, result);
+  } catch (error) {
+    warn(doc.file, `the document could not be read (${error.message})`);
+    converted.set(doc, { html: '<p class="empty">This document could not be displayed.</p>', text: '', headings: [], warnings: [] });
+  }
 });
+
+// Pictures placed in folders
+const pictures = new Map();
+await inBatches(sections, 4, async (section) => {
+  const list = [];
+  for (const image of section.images) {
+    try {
+      list.push({ ...(await saveImage(await fs.readFile(image.file), mediaDir)), title: image.title });
+    } catch (error) {
+      warn(image.file, `the picture could not be read (${error.message})`);
+    }
+  }
+  pictures.set(section, list);
+});
+
+// Pages
+const dateOf = (date) => formatDate(date, config);
+const parentOf = (section) => ({ url: section.url, title: section.title, trail: trail(section) });
+const latest = docs.reduce((max, d) => (d.mtime > max ? d.mtime : max), new Date(0));
+
+setSiteUpdated(docs.length ? dateOf(latest) : '');
+await write('index.html', homePage({ sections: tree.sections, docs: tree.docs, icons }));
+
+for (const section of sections) {
+  if (section.direct) {
+    const doc = section.direct;
+    await write(
+      `${section.url}index.html`,
+      docPage({ doc, parent: parentOf(section.parent), converted: converted.get(doc), updated: dateOf(doc.mtime), images: pictures.get(section) }),
+    );
+    continue;
+  }
+  await write(
+    `${section.url}index.html`,
+    sectionPage({ section, parent: parentOf(section.parent), icon: icons.get(section), images: pictures.get(section) }),
+  );
+}
+for (const doc of docs) {
+  if (doc.section.direct === doc) continue;
+  await write(`${doc.url}index.html`, docPage({ doc, parent: parentOf(doc.section), converted: converted.get(doc), updated: dateOf(doc.mtime), images: [] }));
+}
+
+// Search data
+const where = (list) => list.map((s) => s.title).join(' › ');
+const searchItems = [
+  ...docs.map((doc) => ({
+    title: doc.title,
+    where: where(trail(doc.section.direct === doc ? doc.section.parent : doc.section)),
+    url: doc.url,
+    text: converted.get(doc).text,
+  })),
+  ...sections.filter((s) => !s.direct).map((s) => ({ title: s.title, where: where(trail(s.parent)), url: s.url, text: '' })),
+];
+await write('search.json', JSON.stringify(searchItems));
+
+// App files
+await write('assets/app.css', await fs.readFile(path.join(here, '../src/app.css')));
+await write('assets/app.js', await fs.readFile(path.join(here, '../src/app.js')));
+await write('assets/minisearch.js', await fs.readFile(path.join(here, '../node_modules/minisearch/dist/umd/index.js')));
+await write('manifest.webmanifest', manifest());
+await write('404.html', notFoundPage(basePath));
+await writeAppIcons(workDir);
+
+// Service worker, listing every file with a fingerprint of its content
+const files = {};
+for (const file of (await listFiles(workDir)).sort()) files[file] = hash(await fs.readFile(path.join(workDir, file)), 10);
+const sw = (await fs.readFile(path.join(here, '../src/sw.js'), 'utf8')).replace('__FILES__', JSON.stringify(files));
+await write('sw.js', sw);
+
+await write(
+  'build-report.json',
+  JSON.stringify({ built: new Date().toISOString(), sections: sections.length, documents: docs.length, files: Object.keys(files).length, warnings }, null, 2),
+);
+
+// Publish: swap the finished build into place
+const oldDir = `${outDir}.old`;
+await fs.rm(oldDir, { recursive: true, force: true });
+await fs.rename(outDir, oldDir).catch((error) => {
+  if (error.code !== 'ENOENT') throw error;
+});
+await fs.rename(workDir, outDir);
+await fs.rm(oldDir, { recursive: true, force: true });
+
+const bytes = (await Promise.all(Object.keys(files).map((f) => fs.stat(path.join(outDir, f))))).reduce((sum, s) => sum + s.size, 0);
+console.log(
+  `Built ${sections.length} sections and ${docs.length} documents (${Object.keys(files).length} files, ${(bytes / 1048576).toFixed(1)} MB) in ${((Date.now() - started) / 1000).toFixed(1)} s` +
+    (warnings.length ? ` with ${warnings.length} warning${warnings.length === 1 ? '' : 's'}` : ''),
+);

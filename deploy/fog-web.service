@@ -1,0 +1,17 @@
+[Unit]
+Description=SASES FOG web server
+After=network.target
+
+[Service]
+User=fog
+EnvironmentFile=/etc/fog/fog.env
+ExecStart=/usr/bin/node /opt/fog/server/serve.mjs
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+[Unit]
+Description=SASES FOG: copy content from OneDrive and rebuild if changed
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=fog
+EnvironmentFile=/etc/fog/fog.env
+ExecStart=/opt/fog/bin/sync.sh
+TimeoutStartSec=15min
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/fog /etc/fog

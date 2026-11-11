@@ -5,75 +5,88 @@ import { slugify, uniqueSlug } from './util.mjs';
 const DOC = /\.docx$/i;
 const IMAGE = /\.(jpe?g|png|webp)$/i;
 const ICON = /^icon\.(svg|png)$/i;
-const OLD_COVER = /^cover\.(jpe?g|png|webp)$/i;
-const ORDER_PREFIX = /^(\d{1,3})[\s._-]+/;
+const OLD_COVER = /^cover\.(jpe?g|png)$/i;
+const ORDER = /^(\d+)[\s._-]+(?=\S)/;
+const ignored = (name) => /^(_|\.|~\$)/.test(name);
 
-const isHidden = (name) => /^[_.~]/.test(name) || /^(thumbs\.db|desktop\.ini)$/i.test(name);
-const orderOf = (name) => Number(name.match(ORDER_PREFIX)?.[1] ?? Infinity);
-// Folder and file names cannot contain "/" or ":", so look-alike characters are shown as the real ones.
-const LOOKALIKE_SLASH = /[\u2215\u2044\uFF0F]/g;
-const LOOKALIKE_COLON = /[\uA789\u2236\uFF1A]/g;
+// OneDrive does not allow "/" or ":" in names, so editors use look-alike characters.
 export const displayName = (name) =>
-  name.replace(/\.(docx|jpe?g|png|webp)$/i, '').replace(ORDER_PREFIX, '').replace(LOOKALIKE_SLASH, '/').replace(LOOKALIKE_COLON, ':').trim() || name;
+  name
+    .replace(/\.(docx|jpe?g|png|webp)$/i, '')
+    .replace(ORDER, '')
+    .replace(/[∕⁄／]/g, '/')
+    .replace(/[꞉∶：]/g, ':')
+    .replace(/\s+/g, ' ')
+    .trim() || name;
 
-const byOrder = (a, b) => orderOf(a.name) - orderOf(b.name) || a.name.localeCompare(b.name, undefined, { numeric: true });
+const order = (name) => (ORDER.test(name) ? Number(name.match(ORDER)[1]) : Infinity);
+const inOrder = (a, b) =>
+  order(a.name) - order(b.name) || a.name.localeCompare(b.name, 'en', { numeric: true, sensitivity: 'base' });
 
 /**
- * Reads the content folder into a tree of sections.
- * Every folder is a section; Word documents are pages; icon.svg or icon.png is the tile icon;
- * other images make up the section gallery.
+ * Reads the content folder into a tree.
+ * Folder = section, .docx = document, icon.svg/icon.png = icon, other images = pictures.
  */
-export async function scanContent(root) {
+export async function scan(root) {
   async function walk(dir, parent) {
-    const entries = (await fs.readdir(dir, { withFileTypes: true })).filter((e) => !isHidden(e.name)).sort(byOrder);
-    const used = new Set();
-    const section = {
-      name: parent ? displayName(path.basename(dir)) : '',
+    const entries = (await fs.readdir(dir, { withFileTypes: true })).filter((e) => !ignored(e.name)).sort(inOrder);
+    const slugs = new Set();
+    const node = {
+      title: parent ? displayName(path.basename(dir)) : '',
       dir,
-      path: parent ? `${parent.path}${uniqueSlug(slugify(displayName(path.basename(dir))), parent.childSlugs)}/` : '',
       parent,
-      childSlugs: used,
+      slugs,
+      url: '',
       sections: [],
       docs: [],
       images: [],
-      icon: null,
+      iconFile: null,
     };
+    if (parent) node.url = `${parent.url}${uniqueSlug(slugify(node.title), parent.slugs)}/`;
 
+    // Folders claim their addresses first, so adding a document never moves a folder.
     for (const entry of entries) {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) continue;
+      if (entry.isDirectory()) node.sections.push(await walk(path.join(dir, entry.name), node));
+    }
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      const file = path.join(dir, entry.name);
       if (DOC.test(entry.name)) {
-        const name = displayName(entry.name);
-        const { mtime } = await fs.stat(full);
-        section.docs.push({ name, file: full, source: entry.name, slug: uniqueSlug(slugify(name), used), mtime, section });
+        const title = displayName(entry.name);
+        const { mtime } = await fs.stat(file);
+        node.docs.push({ title, file, mtime, section: node, slug: uniqueSlug(slugify(title), slugs) });
       } else if (ICON.test(entry.name)) {
-        section.icon = full;
+        if (!node.iconFile || /\.svg$/i.test(entry.name)) node.iconFile = file;
       } else if (OLD_COVER.test(entry.name)) {
         continue;
       } else if (IMAGE.test(entry.name)) {
-        section.images.push({ name: displayName(entry.name), file: full, source: entry.name });
+        node.images.push({ title: displayName(entry.name), file });
       }
     }
-    for (const entry of entries) {
-      if (entry.isDirectory()) section.sections.push(await walk(path.join(dir, entry.name), section));
-    }
-    for (const doc of section.docs) doc.path = `${section.path}${doc.slug}/`;
-    return section;
+
+    // A folder with exactly one document and no sub-folders opens straight to that document.
+    node.direct = parent && node.sections.length === 0 && node.docs.length === 1 ? node.docs[0] : null;
+    for (const doc of node.docs) doc.url = node.direct ? node.url : `${node.url}${doc.slug}/`;
+    node.topics = node.sections.length + node.docs.length;
+    return node;
   }
   return walk(root, null);
 }
 
-export function* allSections(section) {
-  yield section;
-  for (const child of section.sections) yield* allSections(child);
+export function* sectionsOf(node) {
+  yield node;
+  for (const child of node.sections) yield* sectionsOf(child);
 }
 
-export const trail = (section) => {
+/** Titles from the top-level section down to this one. */
+export function trail(node) {
   const list = [];
-  for (let s = section; s?.parent; s = s.parent) list.unshift(s);
+  for (let n = node; n?.parent; n = n.parent) list.unshift(n);
   return list;
-};
+}
 
-/** A section holding one document and nothing else opens that document directly. */
-export const directDoc = (section) =>
-  section.sections.length === 0 && section.docs.length === 1 ? section.docs[0] : null;
+/** The nearest icon, looking up through parent folders. */
+export function iconOf(node) {
+  for (let n = node; n; n = n.parent) if (n.iconFile) return n.iconFile;
+  return null;
+}

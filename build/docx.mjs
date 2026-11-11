@@ -4,24 +4,25 @@ import JSZip from 'jszip';
 import mammoth from 'mammoth';
 import sharp from 'sharp';
 import * as cheerio from 'cheerio';
-import config from './config.mjs';
-import { exists, sha, slugify, uniqueSlug } from './util.mjs';
+import config from '../config.mjs';
+import { hash, slugify, uniqueSlug } from './util.mjs';
 
+// Word's highlighter colours, softened so dark text stays readable on them.
 const HIGHLIGHTS = {
-  yellow: '#fff3a3', green: '#c9f2c7', cyan: '#bdeef4', magenta: '#f7c8ec', blue: '#c7dcff', red: '#ffc9c9',
-  darkBlue: '#c7d2fe', darkCyan: '#a5e4e8', darkGreen: '#bbe5c0', darkMagenta: '#e9c6f2', darkRed: '#f5c2c2',
-  darkYellow: '#f3e1a0', darkGray: '#d4d4d8', lightGray: '#ececef', black: '#d4d4d8',
+  yellow: '#fff2a8', green: '#c8f0c4', cyan: '#bfeef5', magenta: '#f6c9ee', blue: '#c9dcff', red: '#ffc7c7',
+  darkBlue: '#c9d2fb', darkCyan: '#a9e3e8', darkGreen: '#bde4c1', darkMagenta: '#e8c8f1', darkRed: '#f4c4c4',
+  darkYellow: '#f1e0a3', darkGray: '#d5d5da', lightGray: '#ececf0', black: '#d5d5da',
 };
 
-const BASE_STYLE_MAP = [
+const STYLE_MAP = [
   "p[style-name='Title'] => p.doc-title:fresh",
-  "p[style-name='Subtitle'] => p.doc-subtitle:fresh",
+  "p[style-name='Subtitle'] => p.subtitle:fresh",
   "p[style-name='heading 1'] => h2:fresh",
   "p[style-name='heading 2'] => h3:fresh",
   "p[style-name='heading 3'] => h4:fresh",
   "p[style-name='heading 4'] => h5:fresh",
-  "p[style-name='heading 5'] => h5:fresh",
-  "p[style-name='heading 6'] => h5:fresh",
+  "p[style-name='heading 5'] => h6:fresh",
+  "p[style-name='heading 6'] => h6:fresh",
   "p[style-name='Quote'] => blockquote > p:fresh",
   "p[style-name='Intense Quote'] => blockquote.callout > p:fresh",
   "r[style-name='Strong'] => strong",
@@ -29,178 +30,207 @@ const BASE_STYLE_MAP = [
   'u => u',
   'strike => s',
   ...Object.keys(HIGHLIGHTS).map((name) => `highlight[color='${name}'] => mark.hl-${name}`),
+  "r[style-name='FogMark'] => span.fog-mark",
 ];
 
-const isPlainColour = (hex) => !hex || /^(auto|000000)$/i.test(hex);
-const isPlainFill = (hex) => !hex || /^(auto|ffffff)$/i.test(hex);
+const HEX = /^[0-9a-f]{6}$/i;
+const colourOf = (xml, tag, attr) => {
+  const value = xml.match(new RegExp(`<w:${tag}\\b[^>]*\\bw:${attr}="([^"]+)"`))?.[1];
+  return value && HEX.test(value) ? value.toLowerCase() : '';
+};
+const plainText = (hex) => !hex || hex === '000000';
+const plainFill = (hex) => !hex || hex === 'ffffff';
 
-// Word stores text colour and shading as direct run formatting, which mammoth ignores.
-// Give each distinct colour/shading combination its own character style so it can be mapped to HTML.
-async function tagRunFormatting(buffer) {
+const PARA_OPEN = /<w:p(?:\s[^>]*)?>(?:<w:pPr\/>|<w:pPr>[\s\S]*?<\/w:pPr>)?/;
+const marker = (text) => `<w:r><w:rPr><w:rStyle w:val="FogMark"/></w:rPr><w:t>${text}</w:t></w:r>`;
+
+/**
+ * Mammoth drops text colour and shading because Word stores them as direct formatting.
+ * This rewrites the document so they survive conversion:
+ *  - coloured or shaded runs get a generated character style, mapped to a span;
+ *  - shaded table cells and paragraphs get a small marker run that is turned into a
+ *    background colour on the cell or paragraph afterwards.
+ */
+async function keepColours(buffer) {
   const zip = await JSZip.loadAsync(buffer);
   const docFile = zip.file('word/document.xml');
   const stylesFile = zip.file('word/styles.xml');
-  if (!docFile || !stylesFile) return { buffer, styleMap: [] };
+  if (!docFile || !stylesFile) return { buffer, styleMap: [], runStyles: new Map() };
 
-  const created = new Map();
-  const cellFills = new Set();
-  const withCells = (await docFile.async('string')).replace(/<w:tc>([\s\S]*?)<\/w:tc>/g, (whole, inner) => {
-    const fill = inner.match(/<w:tcPr>[\s\S]*?<w:shd\b[^>]*\bw:fill="([0-9A-Fa-f]{6})"[\s\S]*?<\/w:tcPr>/)?.[1];
-    if (isPlainFill(fill)) return whole;
-    const id = `FogCell${fill.toLowerCase()}`;
-    cellFills.add(id);
-    const marked = inner.replace(/<w:p(\s[^>]*)?>(?!<w:pPr>)/g, `<w:p$1><w:pPr><w:pStyle w:val="${id}"/></w:pPr>`)
-      .replace(/<w:pPr>(?![\s\S]{0,40}?<w:pStyle)/g, `<w:pPr><w:pStyle w:val="${id}"/>`);
-    return `<w:tc>${marked}</w:tc>`;
+  const runStyles = new Map();
+  let marked = false;
+  let xml = await docFile.async('string');
+  xml = xml.replace(/<w:p(\s[^>]*)?\/>/g, '<w:p$1></w:p>');
+
+  // Table cell shading
+  xml = xml.replace(/<w:tc>([\s\S]*?)<\/w:tc>/g, (whole, inner) => {
+    const props = inner.match(/^\s*<w:tcPr>[\s\S]*?<\/w:tcPr>/)?.[0] ?? '';
+    const fill = colourOf(props, 'shd', 'fill');
+    if (plainFill(fill)) return whole;
+    marked = true;
+    return `<w:tc>${inner.replace(PARA_OPEN, (open) => `${open}${marker(`cell:${fill}`)}`)}</w:tc>`;
   });
-  const xml = withCells.replace(/<w:rPr>([\s\S]*?)<\/w:rPr>/g, (whole, inner) => {
+
+  // Paragraph shading
+  xml = xml.replace(/<w:p(?:\s[^>]*)?><w:pPr>[\s\S]*?<\/w:pPr>/g, (open) => {
+    const props = open.replace(/<w:rPr>[\s\S]*?<\/w:rPr>/g, '');
+    const fill = colourOf(props, 'shd', 'fill');
+    if (plainFill(fill)) return open;
+    marked = true;
+    return `${open}${marker(`para:${fill}`)}`;
+  });
+
+  // Run colour and shading
+  xml = xml.replace(/<w:r(?:\s[^>]*)?><w:rPr>([\s\S]*?)<\/w:rPr>/g, (whole, inner) => {
     if (inner.includes('<w:rStyle')) return whole;
-    const colour = inner.match(/<w:color\b[^>]*\bw:val="([0-9A-Fa-f]{6}|auto)"/)?.[1];
-    const fill = inner.match(/<w:shd\b[^>]*\bw:fill="([0-9A-Fa-f]{6}|auto)"/)?.[1];
-    const c = isPlainColour(colour) ? '' : colour.toLowerCase();
-    const f = isPlainFill(fill) ? '' : fill.toLowerCase();
+    const colour = colourOf(inner, 'color', 'val');
+    const fill = colourOf(inner, 'shd', 'fill');
+    const c = plainText(colour) ? '' : colour;
+    const f = plainFill(fill) ? '' : fill;
     if (!c && !f) return whole;
-    const id = `FogFmt${c ? `C${c}` : ''}${f ? `F${f}` : ''}`;
-    created.set(id, { colour: c, fill: f });
-    return `<w:rPr><w:rStyle w:val="${id}"/>${inner}</w:rPr>`;
+    const id = `FogRun${c ? `C${c}` : ''}${f ? `F${f}` : ''}`;
+    runStyles.set(id, [c && `color:#${c}`, f && `background-color:#${f}`].filter(Boolean).join(';'));
+    return whole.replace('<w:rPr>', `<w:rPr><w:rStyle w:val="${id}"/>`);
   });
-  if (!created.size && !cellFills.size) return { buffer, styleMap: [] };
 
-  const styleXml = [
-    ...[...created.keys()].map((id) => `<w:style w:type="character" w:customStyle="1" w:styleId="${id}"><w:name w:val="${id}"/></w:style>`),
-    ...[...cellFills].map((id) => `<w:style w:type="paragraph" w:customStyle="1" w:styleId="${id}"><w:name w:val="${id}"/><w:basedOn w:val="Normal"/></w:style>`),
-  ].join('');
-  const styles = (await stylesFile.async('string')).replace('</w:styles>', `${styleXml}</w:styles>`);
+  if (!runStyles.size && !marked) return { buffer, styleMap: [], runStyles };
+
+  const added = [...runStyles.keys(), 'FogMark']
+    .map((id) => `<w:style w:type="character" w:customStyle="1" w:styleId="${id}"><w:name w:val="${id}"/></w:style>`)
+    .join('');
   zip.file('word/document.xml', xml);
-  zip.file('word/styles.xml', styles);
-
+  zip.file('word/styles.xml', (await stylesFile.async('string')).replace('</w:styles>', `${added}</w:styles>`));
   return {
     buffer: await zip.generateAsync({ type: 'nodebuffer' }),
-    styleMap: [
-      ...[...created.keys()].map((id) => `r[style-name='${id}'] => span.${id}`),
-      ...[...cellFills].map((id) => `p[style-name='${id}'] => p.${id}:fresh`),
-    ],
-    formats: created,
+    styleMap: [...runStyles.keys()].map((id) => `r[style-name='${id}'] => span.${id}`),
+    runStyles,
   };
 }
 
-export async function convertDocx(file, { distDir, title }) {
-  const warnings = [];
-  const mediaDir = path.join(distDir, 'media');
+/** Resizes a picture to WebP in the media folder. Returns null if it cannot be read. */
+export async function saveImage(input, mediaDir) {
+  const name = `${hash(input, 16)}.webp`;
+  const out = path.join(mediaDir, name);
+  const { data, info } = await sharp(input, { failOn: 'none' })
+    .rotate()
+    .resize({ width: config.images.maxWidth, height: config.images.maxWidth * 2, fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: config.images.quality })
+    .toBuffer({ resolveWithObject: true });
   await fs.mkdir(mediaDir, { recursive: true });
-  const imageSizes = new Map();
+  await fs.writeFile(out, data);
+  return { name, width: info.width, height: info.height };
+}
 
-  const tagged = await tagRunFormatting(await fs.readFile(file));
+const BLOCKS = /<\/?(p|li|td|th|tr|h[1-6]|br|div|blockquote|table|ul|ol)\b[^>]*>/gi;
+export const textOf = (html) =>
+  cheerio.load(`<div>${html.replace(BLOCKS, ' ')}</div>`, null, false)('div').text().replace(/\s+/g, ' ').trim();
+
+/**
+ * Converts a Word document to clean HTML.
+ * Returns { html, text, headings, warnings }.
+ */
+export async function convertDocx(file, { mediaDir, title }) {
+  const warnings = [];
+  const sizes = new Map();
+  const prepared = await keepColours(await fs.readFile(file));
 
   const result = await mammoth.convertToHtml(
-    { buffer: tagged.buffer },
+    { buffer: prepared.buffer },
     {
-      styleMap: [...BASE_STYLE_MAP, ...tagged.styleMap],
-      includeDefaultStyleMap: true,
+      styleMap: [...STYLE_MAP, ...prepared.styleMap],
       convertImage: mammoth.images.imgElement(async (image) => {
         try {
-          const input = await image.readAsBuffer();
-          if (!/image\/(png|jpe?g|gif|webp|bmp|tiff)/i.test(image.contentType)) {
-            warnings.push(`image of type ${image.contentType} is not supported and was left out`);
-            return { src: '' };
-          }
-          const name = `${sha(input)}.webp`;
-          const out = path.join(mediaDir, name);
-          if (!(await exists(out))) {
-            await sharp(input)
-              .rotate()
-              .resize({ width: config.images.maxWidth, withoutEnlargement: true })
-              .webp({ quality: config.images.quality })
-              .toFile(out);
-          }
-          const meta = await sharp(out).metadata();
-          imageSizes.set(name, meta);
-          return { src: `@root/media/${name}`, alt: image.altText || '' };
-        } catch (error) {
-          warnings.push(`an image could not be read (${error.message})`);
+          const saved = await saveImage(await image.readAsBuffer(), mediaDir);
+          sizes.set(saved.name, saved);
+          return { src: `media/${saved.name}`, alt: image.altText || '' };
+        } catch {
+          warnings.push(`a picture (${image.contentType || 'unknown type'}) could not be read and was left out`);
           return { src: '' };
         }
       }),
     },
   );
-
-  for (const message of result.messages) {
-    if (message.type === 'warning' && !/FogFmt|FogCell|Unrecognised (paragraph|run) style/.test(message.message)) {
-      warnings.push(message.message);
-    }
+  for (const m of result.messages) {
+    if (m.type !== 'warning' || /Fog(Run|Mark)|Unrecognised (paragraph|run) style/.test(m.message)) continue;
+    warnings.push(m.message);
   }
 
   const $ = cheerio.load(`<article>${result.value}</article>`, null, false);
   const article = $('article');
 
-  // Text colour and shading
-  article.find('span[class^="FogFmt"]').each((_, el) => {
-    const id = $(el).attr('class');
-    const format = tagged.formats?.get(id);
-    if (!format) return;
-    const css = [];
-    if (format.colour) css.push(`color:#${format.colour}`);
-    if (format.fill) css.push(`background-color:#${format.fill}`);
-    $(el).removeAttr('class').attr('style', css.join(';'));
+  // Shading markers
+  article.find('span.fog-mark').each((_, el) => {
+    const [kind, fill] = $(el).text().split(':');
+    const target = kind === 'cell' ? $(el).closest('td, th') : $(el).closest('p, li, h2, h3, h4, h5, h6');
+    if (HEX.test(fill ?? '')) {
+      target.attr('style', `background-color:#${fill}`);
+      if (kind !== 'cell') target.addClass('shaded');
+    }
+    $(el).remove();
   });
 
-  // Table cell shading
-  article.find('p[class^="FogCell"]').each((_, el) => {
-    const fill = $(el).attr('class').slice('FogCell'.length);
-    $(el).closest('td, th').attr('style', `background-color:#${fill}`);
+  // Text colour and run shading
+  article.find('span[class^="FogRun"]').each((_, el) => {
+    const css = prepared.runStyles.get($(el).attr('class'));
     $(el).removeAttr('class');
+    if (css) $(el).attr('style', css);
+    else $(el).replaceWith($(el).contents());
   });
 
   // Highlights
-  for (const [name, colour] of Object.entries(HIGHLIGHTS)) {
-    article.find(`mark.hl-${name}`).attr('style', `background-color:${colour}`).removeAttr('class');
-  }
+  article.find('mark').each((_, el) => {
+    const colour = HIGHLIGHTS[($(el).attr('class') || '').replace('hl-', '')];
+    $(el).removeAttr('class').attr('style', `background-color:${colour || HIGHLIGHTS.yellow}`);
+  });
 
-  // Images
+  // Pictures
   article.find('img').each((_, el) => {
     const src = $(el).attr('src');
-    if (!src) return $(el).remove();
-    const meta = imageSizes.get(path.basename(src));
-    if (meta) $(el).attr({ width: meta.width, height: meta.height });
-    $(el).attr({ loading: 'lazy', decoding: 'async' });
+    const size = sizes.get(path.basename(src || ''));
+    if (!src || !size) return void $(el).remove();
+    $(el).attr({ width: size.width, height: size.height, loading: 'lazy', decoding: 'async' });
+    if (!$(el).attr('alt')) $(el).attr('alt', '');
   });
 
-  // A Title paragraph that repeats the file name would duplicate the page heading
+  // A Title that repeats the file name would show the page title twice
   const first = article.children().first();
-  if (first.is('p.doc-title') && first.text().trim().toLowerCase() === title.trim().toLowerCase()) first.remove();
+  const same = (a, b) => a.replace(/\s+/g, ' ').trim().toLowerCase() === b.replace(/\s+/g, ' ').trim().toLowerCase();
+  if (first.is('p.doc-title') && same(first.text(), title)) first.remove();
 
-  // Empty paragraphs
-  article.find('p').each((_, el) => {
-    const p = $(el);
-    if (!p.text().trim() && !p.find('img').length) p.remove();
+  // Empty paragraphs and list items
+  article.find('p, li, h2, h3, h4, h5, h6').each((_, el) => {
+    if (!$(el).text().trim() && !$(el).find('img').length) $(el).remove();
+  });
+  article.find('ul, ol').each((_, el) => {
+    if (!$(el).children().length) $(el).remove();
   });
 
-  // Tables scroll sideways on small screens rather than breaking the layout
+  // Tables scroll sideways instead of stretching the page
   article.find('table').each((_, el) => {
-    $(el).wrap('<div class="table-wrap"></div>');
+    if (!$(el).parents('table').length) $(el).wrap('<div class="table-scroll" tabindex="0"></div>');
   });
 
   // Links
-  article.find('a[href]').each((_, el) => {
+  article.find('a').each((_, el) => {
     const href = $(el).attr('href');
-    if (/^https?:/i.test(href)) $(el).attr({ target: '_blank', rel: 'noopener' });
+    if (href === undefined) return;
+    if (/^https?:\/\//i.test(href)) $(el).attr({ target: '_blank', rel: 'noopener noreferrer' });
+    else if (!/^(mailto:|tel:|#)/i.test(href)) $(el).replaceWith($(el).contents());
+  });
+  article.find('a[id]:not([href])').each((_, el) => {
+    if (!$(el).contents().length) $(el).remove();
   });
 
-  // Section headings for the contents list
+  // Heading anchors for the contents list
   const used = new Set();
   const headings = [];
-  article.find('h2, h3').each((_, el) => {
-    const text = $(el).text().trim();
-    if (!text) return;
+  article.find('h2').each((_, el) => {
+    const text = $(el).text().replace(/\s+/g, ' ').trim();
     const id = uniqueSlug(slugify(text), used);
     $(el).attr('id', id);
-    headings.push({ id, text, level: el.tagName === 'h2' ? 2 : 3 });
+    headings.push({ id, text });
   });
 
-  return {
-    html: article.html(),
-    text: cheerio.load(`<div>${article.html().replace(/<\/?(p|li|td|th|h[1-6]|br|tr|div|blockquote)\b[^>]*>/gi, ' ')}</div>`)('div').text().replace(/\s+/g, ' ').trim(),
-    headings,
-    warnings: [...new Set(warnings)],
-  };
+  const html = article.html().trim();
+  return { html, text: textOf(html), headings, warnings: [...new Set(warnings)] };
 }
