@@ -76,18 +76,23 @@ function nearestIcon(section, ctx) {
   return null;
 }
 
-function tile({ href, title, iconUrl, size = '', count = 0 }) {
+function tile({ href, title, iconUrl, size = '', count = 0, preview = [] }) {
   const glyph = iconUrl ? `<span class="tile-icon" style="${maskStyle(iconUrl)}"></span>` : '';
   const meta = count > 1 ? `<span class="tile-meta">${count} topics</span>` : '';
-  return `<a class="tile ${size} ${title.length > 28 ? 'tile-long' : ''}" href="${href}">${glyph}<span class="tile-title">${esc(title)}</span>${meta}</a>`;
+  const list = preview.length ? `<span class="tile-preview">${preview.map((name) => `<span>${esc(name)}</span>`).join('')}</span>` : '';
+  return `<a class="tile ${size} ${title.length > 28 ? 'tile-long' : ''}" href="${href}">${glyph}${list}<span class="tile-title">${esc(title)}</span>${meta}</a>`;
 }
+
+const PREVIEW_COUNT = 4;
 
 export function sectionTiles(section, prefix, ctx) {
   const tiles = [
     ...section.sections.map((child) => {
       const target = ctx.directDoc(child);
       const iconUrl = nearestIcon(child, ctx);
-      return tile({ href: prefix + (target ? target.path : child.path), title: child.name, iconUrl: iconUrl && prefix + iconUrl, size: tileSize(child), count: target ? 0 : child.sections.length + child.docs.length });
+      const size = tileSize(child);
+      const preview = size === 'tile-large' ? [...child.sections, ...child.docs].slice(0, PREVIEW_COUNT).map((item) => item.name) : [];
+      return tile({ href: prefix + (target ? target.path : child.path), title: child.name, iconUrl: iconUrl && prefix + iconUrl, size, count: target ? 0 : child.sections.length + child.docs.length, preview });
     }),
     ...section.docs.map((doc) => tile({ href: prefix + doc.path, title: doc.name })),
   ];
