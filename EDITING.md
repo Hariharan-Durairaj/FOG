@@ -7,13 +7,13 @@ All content in the app comes from the **FOG** folder in OneDrive. Change the fol
 | In OneDrive | In the app |
 |---|---|
 | A folder inside **FOG** | A tile on the home screen |
-| A folder inside that folder | A tile inside that section |
+| A folder inside that folder | An entry in that section's list |
 | A Word document (`.docx`) | A page with the document's content |
 | A folder with only one Word document and no sub-folders | Tapping its tile opens the document straight away |
-| An image named `cover.jpg` or `cover.png` | The picture shown on that folder's tile |
+| An image named `cover.jpg` or `cover.png` | The picture on that section's home tile and page banner |
 | Any other image (`.jpg`, `.png`) in a folder | Shown below the content of that folder |
 
-Sections with more sub-folders get larger tiles on the screen: 3 or more sub-folders gives a wide tile and 6 or more a large tile.
+On the home screen, sections with more sub-folders get larger tiles: 3 or more sub-folders gives a wide tile and 6 or more a large tile. Inside a section, topics are shown as a list, with a filter box when there are 10 or more.
 
 ## Names and order
 
