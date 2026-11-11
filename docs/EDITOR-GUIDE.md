@@ -19,12 +19,9 @@ Other file types (PDF, Excel, old `.doc` files) are ignored. Save old Word files
 
 ## Order
 
-Start a name with a number to set its position: `01 Safety`, `02 First Aid`, `03 Incident Management`.
+Sections on the home screen and the topics inside each section are shown in **alphabetical order**.
 
-- Use digits, then a space, full stop, underscore or hyphen.
-- The number is not shown in the app.
-- Use two digits (`01`, `02` … `10`) so the order also looks right in OneDrive.
-- Names without a number come last, in alphabetical order.
+You can still start names with a number (`01 Safety`, `02 First Aid`) to keep the folder tidy in OneDrive. The number is not shown in the app and does not change the order. (An administrator can switch the app back to number order in the settings.)
 
 ## Names with `/` or `:`
 

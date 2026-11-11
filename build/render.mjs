@@ -106,7 +106,7 @@ export function homePage({ sections, docs, icons }) {
   const { biggerFrom, biggestFrom } = config.entrySizes;
   const sizeOf = (s) => (s.sections.length >= biggestFrom ? 'xl' : s.sections.length >= biggerFrom ? 'lg' : 'md');
   const byTitle = (a, b) => a.title.localeCompare(b.title, config.locale, { numeric: true, sensitivity: 'base' });
-  if (config.homeOrder === 'alphabetical') {
+  if (config.order === 'alphabetical') {
     sections = [...sections].sort(byTitle);
     docs = [...docs].sort(byTitle);
   }
@@ -155,6 +155,7 @@ export function sectionPage({ section, parent, icon, images }) {
     ...section.sections.map((s) => ({ title: s.title, url: s.url, count: s.direct ? 0 : s.topics, folder: !s.direct })),
     ...section.docs.map((d) => ({ title: d.title, url: d.url, count: 0, folder: false })),
   ];
+  if (config.order === 'alphabetical') rows.sort((a, b) => a.title.localeCompare(b.title, config.locale, { numeric: true, sensitivity: 'base' }));
   const filter =
     rows.length >= config.filterFrom
       ? `<div class="filter">

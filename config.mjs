@@ -10,9 +10,9 @@ export default {
   timeZone: 'Australia/Adelaide',
   locale: 'en-AU',
 
-  // Order of the home screen entries: 'alphabetical' or 'folder' (number prefixes).
-  // Topics inside sections always follow the folder order.
-  homeOrder: 'alphabetical',
+  // Order of the home screen and of the topics inside each section:
+  // 'alphabetical' (A to Z, number prefixes ignored) or 'folder' (by number prefix).
+  order: 'alphabetical',
 
   // Home screen entry size, by number of sub-folders in the section.
   entrySizes: { biggerFrom: 6, biggestFrom: 12 },

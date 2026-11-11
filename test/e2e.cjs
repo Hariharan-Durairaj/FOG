@@ -155,6 +155,9 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
     await page.goto(base + 'first-aid/');
     await page.fill('#filter', 'cardio');
     const shown = await page.locator('#topics > li:visible').count();
+    await page.fill('#filter', '');
+    const topicTitles = await page.$$eval('.topic-title', (els) => els.map((e) => e.textContent));
+    check(topicTitles.join('|') === [...topicTitles].sort((a, b) => a.localeCompare(b, 'en-AU', { numeric: true, sensitivity: 'base' })).join('|'), `${name}: topics inside a section in alphabetical order`);
     check(shown === 4, `${name}: section filter narrows 45 topics`, `${shown} shown`);
     check((await page.locator('#filter').count()) === 1 && (await page.goto(base + 'safety/')) && (await page.locator('#filter').count()) === 0, `${name}: filter only on long sections`);
 
