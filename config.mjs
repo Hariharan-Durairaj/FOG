@@ -17,6 +17,10 @@ export default {
   // Home screen entry size, by number of sub-folders in the section.
   entrySizes: { biggerFrom: 6, biggestFrom: 12 },
 
+  // Laptops and desktops: entries per home screen row (the last row may have fewer),
+  // and how much fits in a row (standard entry = 2, bigger = 3, biggest = 4).
+  desktopRows: { min: 3, max: 4, maxWeight: 10 },
+
   // On phones, sections below the bigger size whose names are short share a row in pairs.
   phonePairs: { halfMaxChars: 22, halfMaxWord: 10 },
 

@@ -102,6 +102,28 @@ ${images.map((i) => `<figure><img src="${r}media/${i.name}" width="${i.width}" h
 
 // ---------- Home ----------
 
+// On laptops and desktops the home entries are laid out in rows of at least config.desktopRows.min
+// entries (only the last row may have fewer). Bigger sections take a bigger share of their row.
+const WEIGHT = { md: 2, lg: 3, xl: 4 };
+function desktopRows(items, sizeOf) {
+  const { min, max, maxWeight } = config.desktopRows;
+  const out = [];
+  let count = 0;
+  let weight = 0;
+  for (const [item, html] of items) {
+    const w = WEIGHT[item.sections ? sizeOf(item) : 'md'];
+    if (count >= min && (count >= max || weight + w > maxWeight)) {
+      out.push('<li class="row-break" role="presentation" aria-hidden="true"></li>');
+      count = 0;
+      weight = 0;
+    }
+    count++;
+    weight += w;
+    out.push(html);
+  }
+  return out;
+}
+
 export function homePage({ sections, docs, icons }) {
   const { biggerFrom, biggestFrom } = config.entrySizes;
   const sizeOf = (s) => (s.sections.length >= biggestFrom ? 'xl' : s.sections.length >= biggerFrom ? 'lg' : 'md');
@@ -142,7 +164,7 @@ export function homePage({ sections, docs, icons }) {
     main: () => `<div class="wrap">
 <h1 class="sr">${esc(config.siteName)}</h1>
 <ul class="entries" id="entries">
-${[...sections.map(entry), ...docs.map(docEntry)].join('\n')}
+${desktopRows([...sections.map((x) => [x, entry(x)]), ...docs.map((x) => [x, docEntry(x)])], sizeOf).join('\n')}
 </ul>
 </div>`,
   });

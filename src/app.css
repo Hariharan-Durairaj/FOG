@@ -84,6 +84,7 @@ input[type="search"]::-webkit-search-cancel-button, input[type="search"]::-webki
 
 .entries { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .entries > li { display: flex; min-width: 0; }
+.entries > .row-break { display: none; }
 .entry { display: flex; flex: 1; align-items: center; min-width: 0; min-height: 76px; gap: 14px; padding: 12px 14px; background: var(--card); border: 1px solid var(--line); text-decoration: none; transition: box-shadow .12s; }
 .entry:hover { box-shadow: 0 4px 16px rgba(20, 33, 61, .12); }
 .entry:active { background: #faf8f5; }
@@ -104,12 +105,14 @@ input[type="search"]::-webkit-search-cancel-button, input[type="search"]::-webki
 .entry-xl .entry-title { font-size: 1.1rem; font-weight: 700; }
 .entry-xl .entry-count { color: #d5dbe9; }
 
-/* Laptops and desktops: entries of three widths, all the same height */
-@media (min-width: 700px) {
-  .entries { display: flex; flex-wrap: wrap; gap: 12px; }
-  .entry-md { flex: 1 1 200px; }
-  .entry-lg { flex: 2 1 340px; }
-  .entry-xl { flex: 3 1 440px; }
+/* Laptops and desktops: rows of 3-4 entries, all the same height */
+@media (min-width: 1000px) {
+  .entries { display: flex; flex-wrap: wrap; gap: 0 12px; }
+  .entries > li { margin-bottom: 12px; }
+  .entries > .row-break { display: block; flex: 0 0 100%; height: 0; margin: 0; }
+  .entry-md { flex: 2 1 0; }
+  .entry-lg { flex: 3 1 0; }
+  .entry-xl { flex: 4 1 0; }
   .entry { height: 150px; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 12px; padding: 16px; }
   .entry .icon { width: 48px; height: 48px; }
   .entry .icon svg { width: 28px; height: 28px; }

@@ -88,7 +88,7 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
     await page.goto(base);
     await saved(page);
     check(await page.locator('#install').isVisible(), `${name}: download icon is shown in the browser`);
-    const sizes = await page.evaluate(() => [...document.querySelectorAll('.entries > li')].map((li) => li.className.match(/entry-(md|lg|xl)/)[1]).join(''));
+    const sizes = await page.evaluate(() => [...document.querySelectorAll('.entries > li:not(.row-break)')].map((li) => li.className.match(/entry-(md|lg|xl)/)[1]).join(''));
     check(/xl/.test(sizes) && /lg/.test(sizes) && /md/.test(sizes), `${name}: home entries have three sizes`);
 
     await context.setOffline(true);
@@ -232,6 +232,15 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
     const pos = await dpage.evaluate(() => ({ bar: document.querySelector('.bar-in').getBoundingClientRect().bottom, search: document.getElementById('q').getBoundingClientRect().top }));
     check((await dpage.locator('#q').isVisible()) && (await dpage.locator('#search-toggle').isHidden()) && pos.search > pos.bar, 'desktop: search bar below the header on every page, no search icon', JSON.stringify(pos));
     await dpage.goto(base);
+    const perRow = await dpage.evaluate(() => {
+      const rows = {};
+      for (const li of document.querySelectorAll('.entries > li:not(.row-break)')) {
+        const top = Math.round(li.getBoundingClientRect().top);
+        rows[top] = (rows[top] || 0) + 1;
+      }
+      return Object.values(rows);
+    });
+    check(perRow.slice(0, -1).every((n) => n >= 3), 'desktop: at least 3 entries per row except the last', perRow.join(' '));
     const cdp = await desktop.newCDPSession(dpage);
     const { installabilityErrors } = await cdp.send('Page.getInstallabilityErrors');
     check(installabilityErrors.length === 0, 'no installability errors', JSON.stringify(installabilityErrors));
