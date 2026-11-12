@@ -289,7 +289,8 @@
   }
 
   // ---------- Full-screen pictures ----------
-  const pictures = document.querySelectorAll('.prose img, .gallery img');
+  // PDF pages are part of the page, and small inline symbols are not pictures to enlarge
+  const pictures = [...document.querySelectorAll('.prose img, .gallery img')].filter((img) => !img.closest('.pdf-page') && !img.classList.contains('icon-inline'));
   if (pictures.length) {
     let viewer;
     const open = (source) => {

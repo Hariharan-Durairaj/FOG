@@ -21,7 +21,7 @@ rclone sync "$REMOTE:$FOLDER" "$DATA/content" \
   --config "$CONF" \
   --create-empty-src-dirs --ignore-case \
   --filter '- ~$*' --filter '- _*/**' --filter '- _*' --filter '- .*' \
-  --filter '+ *.{docx,jpg,jpeg,png,webp,svg}' --filter '- *' \
+  --filter '+ *.{docx,pdf,jpg,jpeg,png,webp,svg}' --filter '- *' \
   --retries 3 --low-level-retries 5 --timeout 60s --contimeout 30s \
   --log-level NOTICE
 

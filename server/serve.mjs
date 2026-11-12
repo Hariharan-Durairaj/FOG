@@ -19,6 +19,7 @@ const TYPES = {
   '.webp': 'image/webp',
   '.jpg': 'image/jpeg',
   '.ico': 'image/x-icon',
+  '.pdf': 'application/pdf',
 };
 
 const HEADERS = {

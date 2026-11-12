@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import config from '../config.mjs';
 import { scan, sectionsOf, trail, iconOf } from './scan.mjs';
 import { convertDocx, saveImage } from './docx.mjs';
+import { convertPdf } from './pdf.mjs';
 import { sectionIcon, writeAppIcons } from './icons.mjs';
 import { setSiteUpdated, homePage, sectionPage, docPage, notFoundPage, manifest } from './render.mjs';
 import { formatDate, hash } from './util.mjs';
@@ -80,7 +81,9 @@ for (const section of sections) {
 const converted = new Map();
 await inBatches(docs, 4, async (doc) => {
   try {
-    const result = await convertDocx(doc.file, { mediaDir, title: doc.title });
+    const result = doc.pdf
+      ? await convertPdf(doc.file, { outDir: workDir, mediaDir, title: doc.title })
+      : await convertDocx(doc.file, { mediaDir, title: doc.title });
     for (const message of result.warnings) warn(doc.file, message);
     converted.set(doc, result);
   } catch (error) {

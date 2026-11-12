@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { slugify, uniqueSlug } from './util.mjs';
 
-const DOC = /\.docx$/i;
+const DOC = /\.(docx|pdf)$/i;
 const IMAGE = /\.(jpe?g|png|webp)$/i;
 const ICON = /^icon\.(svg|png)$/i;
 const OLD_COVER = /^cover\.(jpe?g|png)$/i;
@@ -12,7 +12,7 @@ const ignored = (name) => /^(_|\.|~\$)/.test(name);
 // OneDrive does not allow "/" or ":" in names, so editors use look-alike characters.
 export const displayName = (name) =>
   name
-    .replace(/\.(docx|jpe?g|png|webp)$/i, '')
+    .replace(/\.(docx|pdf|jpe?g|png|webp)$/i, '')
     .replace(ORDER, '')
     .replace(/[∕⁄／]/g, '/')
     .replace(/[꞉∶：]/g, ':')
@@ -54,7 +54,7 @@ export async function scan(root) {
       if (DOC.test(entry.name)) {
         const title = displayName(entry.name);
         const { mtime } = await fs.stat(file);
-        node.docs.push({ title, file, mtime, section: node, slug: uniqueSlug(slugify(title), slugs) });
+        node.docs.push({ title, file, mtime, section: node, slug: uniqueSlug(slugify(title), slugs), pdf: /\.pdf$/i.test(entry.name) });
       } else if (ICON.test(entry.name)) {
         if (!node.iconFile || /\.svg$/i.test(entry.name)) node.iconFile = file;
       } else if (OLD_COVER.test(entry.name)) {
@@ -64,7 +64,7 @@ export async function scan(root) {
       }
     }
 
-    // A folder with exactly one document and no sub-folders opens straight to that document.
+    // A folder with exactly one document (Word or PDF) and no sub-folders opens straight to that document.
     node.direct = parent && node.sections.length === 0 && node.docs.length === 1 ? node.docs[0] : null;
     for (const doc of node.docs) doc.url = node.direct ? node.url : `${node.url}${doc.slug}/`;
     node.topics = node.sections.length + node.docs.length;

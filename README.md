@@ -20,7 +20,7 @@ The workflow keeps the OneDrive sign-in renewed by itself (an encrypted copy is 
 ## How it works
 
 1. `bin/sync.sh` (or the workflow) copies the OneDrive folder with rclone, then compares a fingerprint of the content with the last build. If nothing changed it stops.
-2. `build/build.mjs` turns the folder tree into static pages: folders become sections, Word documents become pages, pictures are resized to WebP. The finished build is swapped into place in one step.
+2. `build/build.mjs` turns the folder tree into static pages: folders become sections, Word documents become pages, PDFs become pages of page pictures (via pdf.js) with a link to the original, pictures are resized to WebP. The finished build is swapped into place in one step.
 3. `server/serve.mjs` serves the built folder. Any static file server can be used instead; unknown addresses must return `404.html`.
 4. The service worker (`sw.js`, generated from `src/sw.js`) lists every file with a fingerprint. Devices download everything on the first visit and afterwards only the files whose fingerprint changed.
 
@@ -37,7 +37,7 @@ test/             Playwright checks
 
 ## Requirements
 
-- Node.js 20 or later
+- Node.js 20.19 or later (the workflow uses 22)
 - rclone 1.60 or later
 - HTTPS in front of the server. Phones only allow installing and offline use on `https://` addresses.
 

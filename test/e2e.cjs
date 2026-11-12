@@ -17,6 +17,7 @@ const base = `http://localhost:${PORT}/`;
 const FONT = 'body,input,button{font-family:"Liberation Sans",sans-serif !important}';
 
 let failures = 0;
+let server;
 const check = (ok, label, detail = '') => {
   if (!ok) failures++;
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${label}${detail ? ` (${detail})` : ''}`);
@@ -59,6 +60,15 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
     zip.file('word/document.xml', xml.replace(/<w:body>/, '<w:body><w:p><w:r><w:t xml:space="preserve">Editor note: EDNOTECHECK keep this short.</w:t></w:r></w:p><w:p><w:r><w:rPr><w:vanish/></w:rPr><w:t>HIDDENCHECK</w:t></w:r><w:r><w:t>Visible after hidden.</w:t></w:r></w:p>'));
     fs.writeFileSync(file, await zip.generateAsync({ type: 'nodebuffer' }));
   }
+  // PDFs: one alone in a folder (opens directly), one next to a Word document, one broken
+  const pdfDir = path.join(content, '07 Storm & Water Damage/09 Flood Response Card');
+  fs.mkdirSync(pdfDir, { recursive: true });
+  execFileSync('node', [path.join(__dirname, 'make-pdf.cjs'), path.join(pdfDir, 'Flood Response Card.pdf')]);
+  fs.copyFileSync(path.join(pdfDir, 'Flood Response Card.pdf'), path.join(content, '02 First Aid/45 Resources/Quick reference card.pdf'));
+  fs.writeFileSync(path.join(deep, '04 Broken card.pdf'), 'not a real pdf');
+  // Word document with small warning symbols in the text and pictures of other sizes
+  fs.mkdirSync(path.join(content, '01 Safety/06 Fire Support Operations'), { recursive: true });
+  fs.copyFileSync(path.join(__dirname, 'fixtures/inline-icons.docx'), path.join(content, '01 Safety/06 Fire Support Operations/Fire Support Operations.docx'));
   const report = build();
   {
     const page = fs.readFileSync(path.join(dist, 'first-aid/asthma/index.html'), 'utf8');
@@ -70,7 +80,7 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
   const iconText = icon ? fs.readFileSync(path.join(dist, 'icons', icon), 'utf8') : '';
   check(icon && !/script|foreignObject|onload|javascript:/i.test(iconText), 'unsafe SVG content is removed from icons');
 
-  const server = spawn('node', [path.join(appDir, 'server/serve.mjs'), dist, String(PORT), '127.0.0.1'], { env: { ...process.env, FOG_LOG: '1' } });
+  server = spawn('node', [path.join(appDir, 'server/serve.mjs'), dist, String(PORT), '127.0.0.1'], { env: { ...process.env, FOG_LOG: '1' } });
   let log = [];
   server.stdout.on('data', (d) => log.push(...d.toString().split('\n').filter((l) => l.startsWith('GET'))));
   await new Promise((r) => setTimeout(r, 600));
@@ -196,6 +206,49 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
     await page.goto(base + 'first-aid');
     check(page.url() === base + 'first-aid/', `${name}: address without a trailing slash still opens`);
 
+    // PDF
+    await page.goto(base + 'storm-and-water-damage/flood-response-card/');
+    const pdfState = await page.evaluate(async () => {
+      const imgs = [...document.querySelectorAll('.pdf-page img')];
+      imgs.forEach((i) => (i.loading = 'eager'));
+      await Promise.all(imgs.map((i) => i.decode().catch(() => {})));
+      return { pages: imgs.length, loaded: imgs.filter((i) => i.naturalWidth > 0).length, title: document.querySelector('h1').textContent, link: document.querySelector('.pdf-open a')?.href };
+    });
+    check(pdfState.pages === 3 && pdfState.loaded === 3 && pdfState.title === 'Flood Response Card', `${name}: a folder with one PDF opens straight to its pages`, JSON.stringify(pdfState));
+    const pdfHead = await page.evaluate(async (url) => {
+      const r = await fetch(url);
+      return `${r.status} ${new TextDecoder().decode((await r.arrayBuffer()).slice(0, 5))}`;
+    }, pdfState.link);
+    check(pdfHead === '200 %PDF-', `${name}: the original PDF opens offline`, pdfHead);
+    await page.goto(base);
+    await openSearch(page);
+    await page.fill('#q', 'lastpageword');
+    await page.waitForSelector('.result');
+    check((await page.locator('.result-title').allTextContents()).includes('Flood Response Card'), `${name}: search finds text on any page of a PDF`);
+    await page.goto(base + 'storm-and-water-damage/flood-response-card/');
+    await page.locator('.pdf-page img').first().click();
+    check((await page.locator('dialog.viewer[open]').count()) === 0, `${name}: PDF pages are part of the page (no picture viewer)`);
+
+    // Small symbols in Word stay in the line of text at their Word size
+    await page.goto(base + 'safety/fire-support-operations/');
+    const icons = await page.evaluate(() =>
+      [...document.querySelectorAll('img.icon-inline')].map((img) => {
+        const r = img.getBoundingClientRect();
+        const text = img.nextElementSibling.getBoundingClientRect();
+        return { w: Math.round(r.width), h: Math.round(r.height), sameLine: r.top < text.bottom && r.bottom > text.top, parent: img.parentElement.tagName };
+      }),
+    );
+    check(icons.length === 2 && icons[0].w === 22 && icons[0].h === 20 && icons.every((i) => i.sameLine && i.parent === 'P'), `${name}: small symbols stay in the line of text`, JSON.stringify(icons));
+    const medium = await page.locator('img[alt="Medium diagram"]').evaluate((img) => Math.round(img.getBoundingClientRect().width));
+    check(medium === 240, `${name}: pictures keep their size from Word`, `${medium}px`);
+    await page.locator('img.icon-inline').first().click();
+    check((await page.locator('dialog.viewer[open]').count()) === 0, `${name}: tapping a symbol does not open the picture viewer`);
+
+    await page.goto(base + 'first-aid/resources/');
+    check((await page.locator('.topic-title').allTextContents()).includes('Quick reference card'), `${name}: a PDF next to a Word document is listed as a topic`);
+    await page.goto(base + pages.find((p) => p.includes('broken-card')));
+    check(/could not be displayed/.test(await page.locator('.prose').textContent()), `${name}: a broken PDF shows a short message`);
+
     // Broken document
     const brokenDoc = pages.find((p) => p.includes('broken-document'));
     await page.goto(base + brokenDoc);
@@ -306,5 +359,6 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
   process.exit(failures ? 1 : 0);
 })().catch((error) => {
   console.error(error);
+  server?.kill();
   process.exit(1);
 });

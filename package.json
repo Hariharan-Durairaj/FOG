@@ -13,10 +13,12 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^0.1.100",
     "cheerio": "^1.2.0",
     "jszip": "^3.10.2",
     "mammoth": "^1.13.0",
     "minisearch": "^7.2.0",
+    "pdfjs-dist": "5.5.207",
     "sharp": "^0.35.5"
   }
 }

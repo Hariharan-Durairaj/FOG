@@ -30,7 +30,13 @@ export default {
   // Document pages show a contents list from this many Heading 1 sections.
   contentsFrom: 3,
 
-  images: { maxWidth: 1400, quality: 80 },
+  // Pictures. Pictures no bigger than iconMax pixels (about 1.7 cm) in Word, such as
+  // warning symbols, stay in the line of text.
+  images: { maxWidth: 1400, quality: 80, iconMax: 64 },
+
+  // PDFs are shown as one picture per page (phones cannot show a PDF inside a page),
+  // with a link to the original. Pages after maxPages are only in the original.
+  pdf: { maxPages: 60, width: 1400 },
 
   colours: { theme: '#14213d', background: '#f5f3ef' },
 };

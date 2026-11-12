@@ -11,11 +11,12 @@ Changes appear in the app within about 15 minutes. Phones pick them up the next 
 | A folder | A section on the home screen |
 | A folder inside a section | A topic. Folders can go as deep as you need |
 | A Word document (`.docx`) | A page. The page title is the file name |
-| A folder that holds one Word document and no folders | Opens straight to that document |
+| A PDF (`.pdf`) | A page showing every page of the PDF, with an **Open the PDF** button. The page title is the file name |
+| A folder that holds one document (Word or PDF) and no folders | Opens straight to that document |
 | `icon.svg` or `icon.png` in a folder | The icon for that section. Topics without their own icon use the section's |
 | Other pictures (`.jpg`, `.jpeg`, `.png`, `.webp`) in a folder | Shown with that folder's content |
 
-Other file types (PDF, Excel, old `.doc` files) are ignored. Save old Word files as `.docx`.
+Other file types (Excel, PowerPoint, old `.doc` files) are ignored. Save old Word files as `.docx`, or save them as PDF.
 
 ## Order
 
@@ -55,7 +56,16 @@ Tips:
 - Use the Heading styles rather than large bold text. Headings make the contents list and help search.
 - Keep tables narrow: three or four columns read best on a phone. Wider tables scroll sideways.
 - Fonts, font sizes, page margins, headers and footers are not carried over. The app uses its own layout.
+- Pictures are shown at the size you give them in Word (never wider than the screen). Tap a picture in the app to see it full screen.
+- Small symbols, such as a warning triangle or danger sign at the start of a line, stay in the line of text, just as in Word. Keep them small in Word (under about 1.5 cm) and *In Line with Text* (*Picture Format → Wrap Text*).
 - Insert pictures as PNG or JPEG. Drawings pasted from other programs (EMF, WMF) and iPhone HEIC photos cannot be shown and are left out.
+
+## PDFs
+
+- Use a PDF when a document must keep its exact layout (forms, posters, maps, scanned pages). For everything else Word is better: the text fits phone screens and can be edited.
+- Each PDF page is shown as a picture people can tap to zoom. Its text is still found by search, unless it is a scan without text.
+- Long PDFs are shown up to page 60; the rest is in the original, opened with **Open the PDF**.
+- PDFs with a password cannot be shown.
 
 ## Notes for future editors
 

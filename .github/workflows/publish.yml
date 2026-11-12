@@ -73,7 +73,7 @@ jobs:
           rclone sync "onedrive:${ONEDRIVE_FOLDER}" content \
             --create-empty-src-dirs --ignore-case \
             --filter '- ~$*' --filter '- _*/**' --filter '- _*' --filter '- .*' \
-            --filter '+ *.{docx,jpg,jpeg,png,webp,svg}' --filter '- *' \
+            --filter '+ *.{docx,pdf,jpg,jpeg,png,webp,svg}' --filter '- *' \
             --retries 3 --low-level-retries 5
           echo "$(find content -type f | wc -l) files downloaded from OneDrive folder '${ONEDRIVE_FOLDER}'."
 

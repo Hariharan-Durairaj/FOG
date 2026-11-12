@@ -231,7 +231,7 @@ ${crumbs(parent.trail, r)}
 <p class="meta">Updated ${esc(updated)}</p>
 ${contents}
 <div class="prose">
-${converted.html.replace(/(<img\b[^>]*\bsrc=")media\//g, `$1${r}media/`)}
+${converted.html.replace(/(<img\b[^>]*\bsrc=")media\//g, `$1${r}media/`).replace(/(<a\b[^>]*\bhref=")files\//g, `$1${r}files/`)}
 </div>
 ${gallery(images, r)}
 </article>`,
