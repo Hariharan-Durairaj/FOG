@@ -164,7 +164,7 @@ export function homePage({ sections, docs, icons }) {
     url: '',
     title: '',
     bodyClass: 'home',
-    header: () => `<span class="brand">${esc(config.siteName)}</span><span class="bar-gap"></span>`,
+    header: () => `<span class="brand">${esc(config.shortName)}</span><span class="bar-gap"></span>`,
     main: () => `<div class="wrap">
 <h1 class="sr">${esc(config.siteName)}</h1>
 <ul class="entries" id="entries">
