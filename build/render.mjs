@@ -25,6 +25,8 @@ const iconHtml = (icon, root) =>
       : `<span class="icon">${ui.folder}</span>`;
 
 let siteUpdated = '';
+let siteLogo = null;
+export const setSiteLogo = (logo) => (siteLogo = logo);
 export const setSiteUpdated = (text) => (siteUpdated = text);
 
 const rootOf = (url) => '../'.repeat(url.split('/').filter(Boolean).length);
@@ -48,6 +50,7 @@ function shell({ url, title, bodyClass, header, main }) {
 <meta name="format-detection" content="telephone=no">
 <link rel="manifest" href="${r}manifest.webmanifest">
 <link rel="icon" href="${r}icons/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="${r}icons/favicon-32.png" type="image/png" sizes="32x32">
 <link rel="icon" href="${r}icons/favicon.png" type="image/png" sizes="48x48">
 <link rel="apple-touch-icon" href="${r}icons/apple-touch-icon.png">
 <link rel="stylesheet" href="${r}assets/app.css">
@@ -57,6 +60,7 @@ function shell({ url, title, bodyClass, header, main }) {
 <a class="skip" href="#main">Skip to content</a>
 <header class="bar">
 <div class="bar-in">
+${siteLogo ? `<a class="bar-logo" href="${r}" aria-label="Home"><img src="${r}${siteLogo.src}" alt="SES" width="${siteLogo.width}" height="${siteLogo.height}"></a>` : ''}
 ${header(r)}
 <button class="bar-btn search-toggle" id="search-toggle" type="button" aria-label="Search" aria-controls="search-bar" aria-expanded="false">${ui.search}</button>
 <button class="bar-btn" id="install" type="button" hidden aria-label="Download app">${ui.download}</button>

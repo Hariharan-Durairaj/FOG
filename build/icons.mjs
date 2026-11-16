@@ -75,37 +75,38 @@ export async function sectionIcon(file, outDir) {
   return { inline: $.xml(svg).replace(/>\s+</g, '><').trim() };
 }
 
-// ---------- App icons ----------
+// ---------- App icons and logo ----------
 
-const wordmark = (scale) => {
-  const w = 428 * scale;
-  const h = 196 * scale;
-  return `<g transform="translate(${(512 - w) / 2} ${(512 - h) / 2}) scale(${scale})" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <g stroke="#fff" stroke-width="30">
-      <path d="M15 132V0H76M15 66H62"/>
-      <circle cx="186" cy="66" r="66"/>
-      <path d="M408.7 19.3A66 66 0 1 0 428 66H376"/>
-    </g>
-    <path d="M0 185H428" stroke="#f76707" stroke-width="22"/>
-  </g>`;
-};
-
-const appIconSvg = ({ rounded, scale }) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="${rounded ? 104 : 0}" fill="${config.colours.theme}"/>${wordmark(scale)}</svg>`;
+// Brand files in src/brand:
+//   fog-tab.svg            browser tab icon
+//   fog-app.svg            app icon (rounded)
+//   fog-app-square.svg     app icon for iPhone (the phone rounds the corners)
+//   fog-app-maskable.svg   app icon for Android icon shapes (content inside the safe circle)
+//   ses-logo-white.svg     header logo, white version for the dark header
+const brand = (name) => new URL(`../src/brand/${name}`, import.meta.url);
 
 export async function writeAppIcons(outDir) {
   const dir = path.join(outDir, 'icons');
   await fs.mkdir(dir, { recursive: true });
-  const rounded = Buffer.from(appIconSvg({ rounded: true, scale: 0.78 }));
-  const square = Buffer.from(appIconSvg({ rounded: false, scale: 0.78 }));
-  const maskable = Buffer.from(appIconSvg({ rounded: false, scale: 0.6 }));
-  const png = (svg, size, file) => sharp(svg, { density: 300 }).resize(size, size).png().toFile(path.join(dir, file));
+  const png = async (name, size, file) =>
+    sharp(await fs.readFile(brand(name)), { density: Math.ceil((72 * size) / 508) * 2 })
+      .resize(size, size)
+      .png()
+      .toFile(path.join(dir, file));
   await Promise.all([
-    png(rounded, 192, 'icon-192.png'),
-    png(rounded, 512, 'icon-512.png'),
-    png(maskable, 512, 'icon-maskable-512.png'),
-    png(square, 180, 'apple-touch-icon.png'),
-    png(rounded, 48, 'favicon.png'),
-    fs.writeFile(path.join(dir, 'favicon.svg'), rounded),
+    png('fog-tab.svg', 32, 'favicon-32.png'),
+    png('fog-tab.svg', 48, 'favicon.png'),
+    fs.copyFile(brand('fog-tab.svg'), path.join(dir, 'favicon.svg')),
+    png('fog-app.svg', 192, 'icon-192.png'),
+    png('fog-app.svg', 512, 'icon-512.png'),
+    png('fog-app-maskable.svg', 512, 'icon-maskable-512.png'),
+    png('fog-app-square.svg', 180, 'apple-touch-icon.png'),
   ]);
+
+  await fs.mkdir(path.join(outDir, 'assets'), { recursive: true });
+  const logo = await fs.readFile(brand('ses-logo-white.svg'), 'utf8');
+  await fs.writeFile(path.join(outDir, 'assets', 'logo.svg'), logo);
+  const [, w, h] = logo.match(/viewBox="[\d.-]+ [\d.-]+ ([\d.]+) ([\d.]+)"/);
+  const height = 44;
+  return { logo: { src: 'assets/logo.svg', width: Math.round((w / h) * height), height } };
 }

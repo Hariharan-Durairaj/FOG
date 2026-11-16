@@ -85,7 +85,7 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
   server.stdout.on('data', (d) => log.push(...d.toString().split('\n').filter((l) => l.startsWith('GET'))));
   await new Promise((r) => setTimeout(r, 600));
 
-  const browser = await chromium.launch();
+  const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
   const files = Object.keys(JSON.parse(fs.readFileSync(path.join(dist, 'sw.js'), 'utf8').match(/const FILES = (\{.*?\});/s)[1]));
   const pages = files.filter((f) => f.endsWith('index.html')).map((f) => f.replace(/index\.html$/, ''));
 
@@ -295,7 +295,9 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
     });
     check(perRow.slice(0, -1).every((n) => n >= 3), 'desktop: at least 3 entries per row except the last', perRow.join(' '));
     const cdp = await desktop.newCDPSession(dpage);
-    const { installabilityErrors } = await cdp.send('Page.getInstallabilityErrors');
+    const installabilityErrors = (await cdp.send('Page.getInstallabilityErrors')).installabilityErrors
+      // Some Chromium builds treat test windows as incognito, where no site can be installed
+      .filter((e) => e.errorId !== 'in-incognito');
     check(installabilityErrors.length === 0, 'no installability errors', JSON.stringify(installabilityErrors));
     const manifest = await cdp.send('Page.getAppManifest');
     check(manifest.errors.length === 0 && /"short_name": "FOG"/.test(manifest.data), 'manifest is valid');
@@ -325,7 +327,7 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
 
     // Same device comes back later: keep storage by reusing a persistent profile
     const profile = path.join(work, 'profile');
-    const persistent = await chromium.launchPersistentContext(profile, { ...devices['Pixel 7'] });
+    const persistent = await chromium.launchPersistentContext(profile, { ...devices['Pixel 7'], ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}) });
     const p2 = persistent.pages()[0] || (await persistent.newPage());
     await p2.goto(base);
     await saved(p2);
@@ -333,6 +335,16 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
 
     await editDocx(path.join(content, '02 First Aid/11 Burns/Burns.docx'), word, 'Zebracrossing');
     build();
+
+    // The server changes a file while the update is downloading: the update must be abandoned, not mixed
+    const burnsFile = path.join(dist, 'first-aid/burns/index.html');
+    const goodBurns = fs.readFileSync(burnsFile);
+    fs.appendFileSync(burnsFile, '<!-- changed during download -->');
+    await p2.goto(base + 'first-aid/burns/');
+    await p2.waitForTimeout(6000);
+    const midState = { updated: /has been updated/.test(await p2.locator('#toast').textContent()), text: await p2.locator('.prose').textContent() };
+    check(!midState.updated && !midState.text.includes('Zebracrossing'), 'update: a file that changes during download leaves the saved copy unchanged', JSON.stringify({ updated: midState.updated }));
+    fs.writeFileSync(burnsFile, goodBurns);
     log = [];
     await p2.goto(base + 'first-aid/burns/'); // reopen while online
     await p2.waitForFunction(() => /has been updated/.test(document.getElementById('toast').textContent), null, { timeout: 30000 });

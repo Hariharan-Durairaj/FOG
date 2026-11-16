@@ -11,6 +11,11 @@ const known = (file) => Object.prototype.hasOwnProperty.call(FILES, file);
 const keyOf = (file) => `${SCOPE}${encodeURI(file)}?v=${FILES[file]}`;
 const addressOf = (file) => SCOPE + encodeURI(file.replace(/(^|\/)index\.html$/, '$1'));
 
+async function fingerprint(buffer) {
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', buffer));
+  return [...digest].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 10);
+}
+
 async function tell(message) {
   const pages = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
   for (const page of pages) page.postMessage(message);
@@ -28,9 +33,13 @@ self.addEventListener('install', (event) => {
 
       const download = async () => {
         for (let file = queue.shift(); file !== undefined; file = queue.shift()) {
-          const response = await fetch(addressOf(file), { cache: 'no-store', credentials: 'same-origin' });
+          // A redirect (for example to a sign-in page) means the file is not available: give up and retry later
+          const response = await fetch(addressOf(file), { cache: 'no-store', credentials: 'same-origin', redirect: 'error' });
           if (!response.ok) throw new Error(`${file}: ${response.status}`);
-          const copy = new Response(await response.blob(), { status: 200, headers: response.headers });
+          const body = await response.arrayBuffer();
+          // Only keep a file that matches this version, so a copy is never a mix of two versions
+          if ((await fingerprint(body)) !== FILES[file]) throw new Error(`${file}: changed during download`);
+          const copy = new Response(body, { status: 200, headers: response.headers });
           await cache.put(keyOf(file), copy);
           done++;
           if (done === total || done - reported >= Math.max(5, total / 20)) {

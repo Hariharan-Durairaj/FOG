@@ -7,7 +7,7 @@ import { scan, sectionsOf, trail, iconOf } from './scan.mjs';
 import { convertDocx, saveImage } from './docx.mjs';
 import { convertPdf } from './pdf.mjs';
 import { sectionIcon, writeAppIcons } from './icons.mjs';
-import { setSiteUpdated, homePage, sectionPage, docPage, notFoundPage, manifest } from './render.mjs';
+import { setSiteUpdated, setSiteLogo, homePage, sectionPage, docPage, notFoundPage, manifest } from './render.mjs';
 import { formatDate, hash } from './util.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -112,6 +112,7 @@ const parentOf = (section) => ({ url: section.url, title: section.title, trail: 
 const latest = docs.reduce((max, d) => (d.mtime > max ? d.mtime : max), new Date(0));
 
 setSiteUpdated(docs.length ? dateOf(latest) : '');
+setSiteLogo((await writeAppIcons(workDir)).logo);
 await write('index.html', homePage({ sections: tree.sections, docs: tree.docs, icons }));
 
 for (const section of sections) {
@@ -152,7 +153,7 @@ await write('assets/app.js', await fs.readFile(path.join(here, '../src/app.js'))
 await write('assets/minisearch.js', await fs.readFile(path.join(here, '../node_modules/minisearch/dist/umd/index.js')));
 await write('manifest.webmanifest', manifest());
 await write('404.html', notFoundPage(basePath));
-await writeAppIcons(workDir);
+
 
 // Service worker, listing every file with a fingerprint of its content
 const files = {};

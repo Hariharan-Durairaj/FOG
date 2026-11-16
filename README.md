@@ -4,6 +4,7 @@ Field Operations Guide as an installable web app. Content is managed in a OneDri
 
 - Editors: see [docs/EDITOR-GUIDE.md](docs/EDITOR-GUIDE.md).
 - All settings (site name, entry sizes, time zone, OneDrive folder name, colours): [`config.mjs`](config.mjs).
+- Logos: `src/brand/` holds the browser tab icon (`fog-tab.svg`), the app icons (`fog-app*.svg`) and the header logo (`ses-logo-white.svg`). Replace a file with one of the same name and rebuild.
 
 ## Publishing with GitHub Pages
 
@@ -87,6 +88,8 @@ Needs Playwright with Chromium.
 NODE_PATH=<folder containing playwright>:$PWD/node_modules node test/e2e.cjs path/to/sample-content
 node test/shots.cjs http://localhost:8043/ out-folder     # phone screenshots
 ```
+
+To use an installed Chromium instead of Playwright's own, set `CHROMIUM_PATH` (for example `/usr/lib/chromium/chromium`).
 
 The checks emulate an iPhone 13 and a Pixel 7 and cover: every page loading offline, layout width, search, section filter, pictures, colours, "Page not found", install rules, and an update (change a document, rebuild, reopen).
 

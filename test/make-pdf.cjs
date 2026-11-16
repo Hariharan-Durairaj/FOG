@@ -1,7 +1,7 @@
 // Writes a small 3-page PDF for tests.  Usage: node test/make-pdf.cjs <out.pdf>
 const { chromium } = require('playwright');
 (async () => {
-  const browser = await chromium.launch();
+  const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
   const page = await browser.newPage();
   await page.setContent(`<style>body{font:14pt Arial;margin:0}section{page-break-after:always;padding:20mm}h1{color:#14213d}td,th{border:1px solid #888;padding:6px}</style>
 <section><h1>Flood Response Card</h1><p>PDFCHECKWORD Check the river height before deploying crews.</p>
