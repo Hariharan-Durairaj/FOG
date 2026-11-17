@@ -6,6 +6,8 @@ import config from '../config.mjs';
 import { scan, sectionsOf, trail, iconOf } from './scan.mjs';
 import { convertDocx, saveImage } from './docx.mjs';
 import { convertPdf } from './pdf.mjs';
+import { convertLink } from './link.mjs';
+import { buildHome } from './home.mjs';
 import { sectionIcon, writeAppIcons } from './icons.mjs';
 import { setSiteUpdated, setSiteLogo, homePage, sectionPage, docPage, notFoundPage, manifest } from './render.mjs';
 import { formatDate, hash } from './util.mjs';
@@ -81,9 +83,11 @@ for (const section of sections) {
 const converted = new Map();
 await inBatches(docs, 4, async (doc) => {
   try {
-    const result = doc.pdf
-      ? await convertPdf(doc.file, { outDir: workDir, mediaDir, title: doc.title })
-      : await convertDocx(doc.file, { mediaDir, title: doc.title });
+    const result = doc.link
+      ? await convertLink(doc, { outDir: workDir, mediaDir })
+      : doc.pdf
+        ? await convertPdf(doc.file, { outDir: workDir, mediaDir, title: doc.title })
+        : await convertDocx(doc.file, { mediaDir, title: doc.title });
     for (const message of result.warnings) warn(doc.file, message);
     converted.set(doc, result);
   } catch (error) {
@@ -113,7 +117,8 @@ const latest = docs.reduce((max, d) => (d.mtime > max ? d.mtime : max), new Date
 
 setSiteUpdated(docs.length ? dateOf(latest) : '');
 setSiteLogo((await writeAppIcons(workDir)).logo);
-await write('index.html', homePage({ sections: tree.sections, docs: tree.docs, icons }));
+const home = await buildHome(tree.homeDir, { mediaDir, docs, sections, warn });
+await write('index.html', homePage({ sections: tree.sections, docs: tree.docs, icons, home }));
 
 for (const section of sections) {
   if (section.direct) {

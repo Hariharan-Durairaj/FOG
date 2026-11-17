@@ -128,7 +128,38 @@ function desktopRows(items, sizeOf) {
   return out;
 }
 
-export function homePage({ sections, docs, icons }) {
+// Highlighted cards, quick access links and key contacts from the home page folder
+function homeExtras(home) {
+  if (!home) return '';
+  const call = svg('<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>');
+  const warnIcon = svg('<path d="M12 3 2 21h20z"/><path d="M12 10v5"/><path d="M12 18h.01"/>');
+  const cards = home.cards
+    .map(
+      (c, i) => `<section class="home-card" aria-labelledby="card-${i}"><h2 id="card-${i}">${warnIcon}<span>${esc(c.title)}</span></h2><div class="prose">${c.html}</div></section>`,
+    )
+    .join('\n');
+  const quick = home.quick.length
+    ? `<nav class="home-quick" aria-labelledby="quick-title"><h2 class="kicker" id="quick-title">Quick access</h2><ul>${home.quick
+        .map((q) => `<li><a href="${esc(q.url)}">${esc(q.title)}</a></li>`)
+        .join('')}</ul></nav>`
+    : '';
+  const contacts = home.contacts.length
+    ? `<section class="home-contacts" aria-labelledby="contacts-title"><h2 class="kicker" id="contacts-title">Key contacts</h2><ul>${home.contacts
+        .map(
+          (c) =>
+            `<li><a href="tel:${esc(c.tel)}"><span class="contact-name">${esc(c.name)}${c.note ? `<small>${esc(c.note)}</small>` : ''}</span><span class="contact-number">${esc(c.number)}</span><span class="contact-call" aria-hidden="true">${call}</span></a></li>`,
+        )
+        .join('')}</ul></section>`
+    : '';
+  if (!cards && !quick && !contacts) return '';
+  return `<div class="home-extras">
+${quick}
+<div class="home-columns">${cards ? `<div class="home-cards">${cards}</div>` : ''}${contacts}</div>
+</div>
+<h2 class="kicker">All sections</h2>`;
+}
+
+export function homePage({ sections, docs, icons, home }) {
   const { biggerFrom, biggestFrom } = config.entrySizes;
   const sizeOf = (s) => (s.sections.length >= biggestFrom ? 'xl' : s.sections.length >= biggerFrom ? 'lg' : 'md');
   const byTitle = (a, b) => a.title.localeCompare(b.title, config.locale, { numeric: true, sensitivity: 'base' });
@@ -167,6 +198,7 @@ export function homePage({ sections, docs, icons }) {
     header: () => `<span class="brand">${esc(config.shortName)}</span><span class="bar-gap"></span>`,
     main: () => `<div class="wrap">
 <h1 class="sr">${esc(config.siteName)}</h1>
+${homeExtras(home)}
 <ul class="entries" id="entries">
 ${desktopRows([...sections.map((x) => [x, entry(x)]), ...docs.map((x) => [x, docEntry(x)])], sizeOf).join('\n')}
 </ul>

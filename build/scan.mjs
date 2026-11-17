@@ -1,8 +1,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import config from '../config.mjs';
 import { slugify, uniqueSlug } from './util.mjs';
 
-const DOC = /\.(docx|pdf)$/i;
+const DOC = /\.(docx|pdf|url)$/i;
 const IMAGE = /\.(jpe?g|png|webp)$/i;
 const ICON = /^icon\.(svg|png)$/i;
 const OLD_COVER = /^cover\.(jpe?g|png)$/i;
@@ -12,7 +13,7 @@ const ignored = (name) => /^(_|\.|~\$)/.test(name);
 // OneDrive does not allow "/" or ":" in names, so editors use look-alike characters.
 export const displayName = (name) =>
   name
-    .replace(/\.(docx|pdf|jpe?g|png|webp)$/i, '')
+    .replace(/\.(docx|pdf|url|jpe?g|png|webp)$/i, '')
     .replace(ORDER, '')
     .replace(/[∕⁄／]/g, '/')
     .replace(/[꞉∶：]/g, ':')
@@ -46,7 +47,13 @@ export async function scan(root) {
 
     // Folders claim their addresses first, so adding a document never moves a folder.
     for (const entry of entries) {
-      if (entry.isDirectory()) node.sections.push(await walk(path.join(dir, entry.name), node));
+      if (!entry.isDirectory()) continue;
+      // The home page folder holds home screen extras, not a section
+      if (!parent && entry.name.trim().toLowerCase() === config.home.folder.toLowerCase()) {
+        node.homeDir = path.join(dir, entry.name);
+        continue;
+      }
+      node.sections.push(await walk(path.join(dir, entry.name), node));
     }
     for (const entry of entries) {
       if (!entry.isFile()) continue;
@@ -54,7 +61,7 @@ export async function scan(root) {
       if (DOC.test(entry.name)) {
         const title = displayName(entry.name);
         const { mtime } = await fs.stat(file);
-        node.docs.push({ title, file, mtime, section: node, slug: uniqueSlug(slugify(title), slugs), pdf: /\.pdf$/i.test(entry.name) });
+        node.docs.push({ title, file, mtime, section: node, slug: uniqueSlug(slugify(title), slugs), pdf: /\.pdf$/i.test(entry.name), link: /\.url$/i.test(entry.name) });
       } else if (ICON.test(entry.name)) {
         if (!node.iconFile || /\.svg$/i.test(entry.name)) node.iconFile = file;
       } else if (OLD_COVER.test(entry.name)) {

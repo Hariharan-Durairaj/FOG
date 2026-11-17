@@ -24,6 +24,15 @@ export default {
   // On phones, sections below the bigger size whose names are short share a row in pairs.
   phonePairs: { halfMaxChars: 22, halfMaxWord: 10 },
 
+  // Home page extras, controlled from this folder at the top of the OneDrive folder.
+  // Inside it: a Word document named "Key contacts" (table: Name | Number | Note),
+  // one named "Quick access" (a list of page titles) and any other Word documents,
+  // which are shown as highlighted cards (for example a seasonal safety message).
+  home: { folder: 'Home page', contacts: 'Key contacts', quickAccess: 'Quick access' },
+
+  // Added to 8-digit local phone numbers so they can be dialled from a mobile.
+  phoneAreaCode: '08',
+
   // Section pages show a filter box from this many topics.
   filterFrom: 10,
 
@@ -37,6 +46,10 @@ export default {
   // PDFs are shown as one picture per page (phones cannot show a PDF inside a page),
   // with a link to the original. Pages after maxPages are only in the original.
   pdf: { maxPages: 60, width: 1400 },
+
+  // Web shortcuts (.url files): a linked PDF is downloaded at build time and shown like
+  // any other PDF. Other links become a page with a button to open the website.
+  links: { timeoutSeconds: 60, maxMegabytes: 50 },
 
   colours: { theme: '#14213d', background: '#f5f3ef' },
 };

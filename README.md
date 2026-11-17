@@ -63,6 +63,14 @@ Settings for both services are in `/etc/fog/fog.env`. Content, the built site an
 
 After changing app files in `/opt/fog`, the next sync rebuilds the site by itself.
 
+## Local preview (CT 134)
+
+The development container keeps its own copy of the site that follows OneDrive, without publishing anything:
+
+- `fog-preview-sync.timer` runs `bin/sync.sh` every 15 minutes (content in `data/content`, site in `data/dist`). It rebuilds only when OneDrive or the app code changed.
+- `fog-preview-web.service` serves `data/dist` on `127.0.0.1:8043`, seen at `https://code.hariharandurairaj.uk/proxy/8043/`.
+- Run a sync now: `sudo systemctl start fog-preview-sync.service`; log: `journalctl -u fog-preview-sync.service`.
+
 ## OneDrive access
 
 - The rclone config holds a remote named `[onedrive]` for the Microsoft account that owns the `FOG` folder. It is a personal account (`drive_type = personal`).

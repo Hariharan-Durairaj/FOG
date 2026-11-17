@@ -11,6 +11,7 @@ Changes appear in the app within about 15 minutes. Phones pick them up the next 
 | A folder | A section on the home screen |
 | A folder inside a section | A topic. Folders can go as deep as you need |
 | A Word document (`.docx`) | A page. The page title is the file name |
+| A web shortcut (`.url`) | A page for that link: a linked PDF is downloaded and shown, other links get an *Open the website* button |
 | A PDF (`.pdf`) | A page showing every page of the PDF, with an **Open the PDF** button. The page title is the file name |
 | A folder that holds one document (Word or PDF) and no folders | Opens straight to that document |
 | `icon.svg` or `icon.png` in a folder | The icon for that section. Topics without their own icon use the section's |
@@ -69,6 +70,27 @@ Tips:
 - Long PDFs are shown up to page 60; the rest is in the original, opened with **Open the PDF**.
 - PDFs with a password cannot be shown.
 
+## Web links to PDFs
+
+To show a PDF that lives on another website (for example a contact directory that is updated elsewhere), add a web shortcut instead of a copy of the file:
+
+- In File Explorer, right-click → *New* → *Shortcut*, paste the web address, and name it with the page title (for example `SA SES Contact Directory`). Or drag the address from the browser's address bar into the OneDrive folder.
+- If the address points to a PDF, the app downloads it each time the guide is updated and shows it like any other PDF, including offline and in search. A *Source* link shows where it came from.
+- If the address points to an ordinary website, the page shows an **Open the website** button. That needs an internet connection.
+- If the PDF cannot be downloaded, the page says so and links to the original.
+
+## Home page
+
+The **Home page** folder at the top of the FOG folder controls the extras at the top of the app's home screen. It is not shown as a section.
+
+| File in `Home page` | On the home screen |
+|---|---|
+| `Key contacts.docx` | Tap-to-call phone numbers. Use a table with three columns: **Name**, **Number**, **Note** (the first row can be headings). Local 8-digit numbers get the 08 area code automatically. |
+| `Quick access.docx` | Buttons to the most-used pages. Write one page title per line, as it appears in the app. If two pages share a title (such as Resources), write `Section › Page`, for example `First Aid › Resources`. |
+| Any other Word document | A highlighted card, titled with the file name, for example `Heat safety.docx`. Use it for seasonal or urgent safety messages. Delete the file (or start its name with `_`) to remove the card. |
+
+Keep cards short: they appear above everything else on a phone.
+
 ## Notes for future editors
 
 You can leave instructions inside a document that never appear in the app or in its search:
@@ -93,6 +115,7 @@ Sections with more topics get a bigger entry on the home screen: 6 or more sub-f
 
 - Wait 15 minutes, then open the app with a connection.
 - Check the name does not start with `_`, `.` or `~$`.
-- Check the file is a `.docx`.
+- Check the file is a `.docx`, `.pdf` or web shortcut (`.url`).
+- For quick access buttons, check the page title is spelled exactly as in the app. Titles that do not match are skipped.
 - Close the document in Word so OneDrive finishes uploading it.
 - If one document shows "This document could not be displayed", open it in Word, choose Save As, save it again as `.docx` and replace the file.

@@ -18,6 +18,7 @@ const FONT = 'body,input,button{font-family:"Liberation Sans",sans-serif !import
 
 let failures = 0;
 let server;
+let linkServer;
 const check = (ok, label, detail = '') => {
   if (!ok) failures++;
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${label}${detail ? ` (${detail})` : ''}`);
@@ -69,7 +70,31 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
   // Word document with small warning symbols in the text and pictures of other sizes
   fs.mkdirSync(path.join(content, '01 Safety/06 Fire Support Operations'), { recursive: true });
   fs.copyFileSync(path.join(__dirname, 'fixtures/inline-icons.docx'), path.join(content, '01 Safety/06 Fire Support Operations/Fire Support Operations.docx'));
+  // Home page folder: heat card, key contacts and quick access (with Word-style dashes and quotes)
+  fs.cpSync(path.join(__dirname, 'fixtures/home-page'), path.join(content, 'Home page'), { recursive: true });
+
+  // Web shortcuts (.url files), served by a small separate server while the site is built
+  const linkDir = path.join(work, 'linked');
+  fs.mkdirSync(linkDir);
+  execFileSync('node', [path.join(__dirname, 'make-pdf.cjs'), path.join(linkDir, 'card.pdf')]);
+  fs.writeFileSync(path.join(linkDir, 'page.html'), '<!doctype html><title>Site</title><p>Hello');
+  const LINK_PORT = 8048;
+  linkServer = spawn('node', ['-e', `require('http').createServer((q,r)=>{const f=require('path').join(${JSON.stringify(linkDir)},q.url.slice(1));require('fs').readFile(f,(e,d)=>{if(e){r.writeHead(404);return r.end()}r.writeHead(200,{'Content-Type':f.endsWith('.pdf')?'application/pdf':'text/html'});r.end(d)})}).listen(${LINK_PORT},'127.0.0.1')`]);
+  await new Promise((r) => setTimeout(r, 500));
+  const shortcut = (url) => `[InternetShortcut]\r\nURL=${url}\r\n`;
+  fs.mkdirSync(path.join(content, '01 Safety/07 Linked card'), { recursive: true });
+  fs.writeFileSync(path.join(content, '01 Safety/07 Linked card/Linked card.url'), shortcut(`http://127.0.0.1:${LINK_PORT}/card.pdf`));
+  fs.writeFileSync(path.join(deep, '05 Website link.url'), shortcut(`http://127.0.0.1:${LINK_PORT}/page.html`));
+  fs.writeFileSync(path.join(deep, '06 Broken link.url'), shortcut(`http://127.0.0.1:${LINK_PORT}/missing.pdf`));
+
   const report = build();
+  linkServer.kill();
+  {
+    const files = Object.keys(JSON.parse(fs.readFileSync(path.join(dist, 'sw.js'), 'utf8').match(/const FILES = (\{.*?\});/s)[1]));
+    check(!files.some((f) => f.startsWith('home-page/')), 'the Home page folder is not published as a section');
+    const warnings = JSON.parse(fs.readFileSync(path.join(dist, 'build-report.json'), 'utf8')).warnings.map((w) => w.message).join(' | ');
+    check(/no page called "No such page"/.test(warnings) && /"Resources" matches/.test(warnings) && /could not download/.test(warnings), 'unmatched quick access entries and failed downloads are reported as warnings');
+  }
   {
     const page = fs.readFileSync(path.join(dist, 'first-aid/asthma/index.html'), 'utf8');
     const search = fs.readFileSync(path.join(dist, 'search.json'), 'utf8');
@@ -172,6 +197,40 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
     await page.fill('#q', 'hypoth');
     await page.waitForFunction(() => document.querySelectorAll('.result').length > 0);
     check(await page.locator('#content').isHidden(), `${name}: search works from inside a section`);
+
+    // Home page extras (checked offline)
+    await page.goto(base);
+    const homeState = await page.evaluate(() => ({
+      card: document.querySelector('.home-card h2')?.textContent.trim(),
+      quick: [...document.querySelectorAll('.home-quick a')].map((a) => [a.textContent, a.getAttribute('href')]),
+      tel: [...document.querySelectorAll('.home-contacts a')].map((a) => a.getAttribute('href')),
+      tiles: [...document.querySelectorAll('.entry-title')].map((e) => e.textContent),
+    }));
+    check(homeState.card === 'Heat safety', `${name}: the heat safety card is on the home page`, homeState.card);
+    const quickTitles = homeState.quick.map((q) => q[0]);
+    check(
+      quickTitles.includes('Primary Assessment - DRSABCD') && quickTitles.includes("Head Injuries / Raccoon Eyes / Battle's Sign") && homeState.quick.some(([t, h]) => t === 'Resources' && h === 'first-aid/resources/'),
+      `${name}: quick access finds pages despite Word dashes and quotes`, JSON.stringify(quickTitles),
+    );
+    let quickBad = [];
+    for (const [, href] of homeState.quick) if ((await page.goto(base + href)).status() !== 200) quickBad.push(href);
+    check(quickBad.length === 0, `${name}: quick access links open offline`, quickBad.join(' '));
+    check(['tel:000', 'tel:132500', 'tel:0882183002'].every((t) => homeState.tel.includes(t)), `${name}: key contacts dial correctly (08 added to local numbers)`, homeState.tel.join(' '));
+    check(!homeState.tiles.includes('Home page'), `${name}: no "Home page" section on the home screen`);
+
+    // Web shortcuts
+    await page.goto(base + 'safety/linked-card/');
+    const linked = await page.evaluate(async () => {
+      const imgs = [...document.querySelectorAll('.pdf-page img')];
+      imgs.forEach((i) => (i.loading = 'eager'));
+      await Promise.all(imgs.map((i) => i.decode().catch(() => {})));
+      return { pages: imgs.filter((i) => i.naturalWidth).length, source: !!document.querySelector('.pdf-source a') };
+    });
+    check(linked.pages === 3 && linked.source, `${name}: a shortcut to a PDF shows the downloaded PDF offline`, JSON.stringify(linked));
+    await page.goto(base + pages.find((p) => p.includes('website-link')));
+    check((await page.locator('.pdf-open a').textContent()) === 'Open the website', `${name}: a shortcut to a website shows an open button`);
+    await page.goto(base + pages.find((p) => p.includes('broken-link')));
+    check(/could not be downloaded/.test(await page.locator('.prose').textContent()), `${name}: a shortcut that cannot be downloaded shows a short message`);
 
     // Section filter
     await page.goto(base + 'first-aid/');
@@ -372,5 +431,6 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
 })().catch((error) => {
   console.error(error);
   server?.kill();
+  linkServer?.kill();
   process.exit(1);
 });
