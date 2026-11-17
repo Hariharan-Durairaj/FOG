@@ -16,6 +16,8 @@ const normalise = (text) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
+
 const telOf = (number) => {
   const digits = number.replace(/[^\d+]/g, '');
   return digits.length === 8 && /^[1-9]/.test(digits) ? `${config.phoneAreaCode}${digits}` : digits;
@@ -46,11 +48,15 @@ export async function buildHome(dir, { mediaDir, docs, sections, warn }) {
     if (is(file, config.home.contacts)) {
       $('tr').each((_, tr) => {
         const cells = $(tr).children('td, th').map((__, c) => $(c).text().replace(/\s+/g, ' ').trim()).get();
-        const [name, number = '', note = ''] = cells;
-        if (!name || !/\d{3}/.test(number.replace(/\s/g, ''))) return; // heading row or empty row
-        home.contacts.push({ name, number, note, tel: telOf(number) });
+        const [name, number = '', ...rest] = cells;
+        const hasNumber = /\d{3}/.test(number.replace(/\s/g, ''));
+        // An email address can be in any column after the name (for example Note, or an extra Email column)
+        const email = cells.slice(1).join(' ').match(EMAIL)?.[0] ?? '';
+        if (!name || (!hasNumber && !email)) return; // heading row or empty row
+        const note = rest.filter((c) => c && c !== email).join(' · ');
+        home.contacts.push({ name, number: hasNumber ? number : '', tel: hasNumber ? telOf(number) : '', email, note });
       });
-      if (!home.contacts.length) warn(full, 'no contacts found: use a table with the columns Name, Number and Note');
+      if (!home.contacts.length) warn(full, 'no contacts found: use a table with the columns Name, Number, Note (and optionally Email)');
     } else if (is(file, config.home.quickAccess)) {
       let items = $('li').map((_, li) => $(li).clone().children('ul, ol').remove().end().text().trim()).get();
       if (!items.length) items = $('p').map((_, p) => $(p).text().trim()).get();

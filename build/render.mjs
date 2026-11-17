@@ -143,11 +143,16 @@ function homeExtras(home) {
         .map((q) => `<li><a href="${esc(q.url)}">${esc(q.title)}</a></li>`)
         .join('')}</ul></nav>`
     : '';
+  const mail = svg('<rect x="3" y="5" width="18" height="14"/><path d="m3 6 9 7 9-7"/>');
   const contacts = home.contacts.length
     ? `<section class="home-contacts" aria-labelledby="contacts-title"><h2 class="kicker" id="contacts-title">Key contacts</h2><ul>${home.contacts
         .map(
           (c) =>
-            `<li><a href="tel:${esc(c.tel)}"><span class="contact-name">${esc(c.name)}${c.note ? `<small>${esc(c.note)}</small>` : ''}</span><span class="contact-number">${esc(c.number)}</span><span class="contact-call" aria-hidden="true">${call}</span></a></li>`,
+            `<li><span class="contact-name">${esc(c.name)}${c.email ? `<small>${esc(c.email)}</small>` : ''}${c.note ? `<small>${esc(c.note)}</small>` : ''}</span>${
+              c.tel ? `<a class="contact-number" href="tel:${esc(c.tel)}">${esc(c.number)}</a>` : ''
+            }<span class="contact-actions">${c.tel ? `<a class="contact-btn" href="tel:${esc(c.tel)}" aria-label="Call ${esc(c.name)}">${call}</a>` : ''}${
+              c.email ? `<a class="contact-btn contact-mail" href="mailto:${esc(c.email)}" aria-label="Email ${esc(c.name)}">${mail}</a>` : ''
+            }</span></li>`,
         )
         .join('')}</ul></section>`
     : '';

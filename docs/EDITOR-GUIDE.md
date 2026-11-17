@@ -85,7 +85,7 @@ The **Home page** folder at the top of the FOG folder controls the extras at the
 
 | File in `Home page` | On the home screen |
 |---|---|
-| `Key contacts.docx` | Tap-to-call phone numbers. Use a table with three columns: **Name**, **Number**, **Note** (the first row can be headings). Local 8-digit numbers get the 08 area code automatically. |
+| `Key contacts.docx` | Tap-to-call phone numbers. Use a table with the columns **Name**, **Number**, **Note**, and optionally **Email** (the first row can be headings). Each contact gets a call button, and an email button when the row has an email address (in the Note or Email column). A contact can have just an email. Local 8-digit numbers get the 08 area code automatically. |
 | `Quick access.docx` | Buttons to the most-used pages. Write one page title per line, as it appears in the app. If two pages share a title (such as Resources), write `Section › Page`, for example `First Aid › Resources`. |
 | Any other Word document | A highlighted card, titled with the file name, for example `Heat safety.docx`. Use it for seasonal or urgent safety messages. Delete the file (or start its name with `_`) to remove the card. |
 

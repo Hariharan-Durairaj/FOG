@@ -216,6 +216,7 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
     for (const [, href] of homeState.quick) if ((await page.goto(base + href)).status() !== 200) quickBad.push(href);
     check(quickBad.length === 0, `${name}: quick access links open offline`, quickBad.join(' '));
     check(['tel:000', 'tel:132500', 'tel:0882183002'].every((t) => homeState.tel.includes(t)), `${name}: key contacts dial correctly (08 added to local numbers)`, homeState.tel.join(' '));
+    check(homeState.tel.includes('mailto:ses.srdo@eso.sa.gov.au') && !homeState.tel.includes('mailto:'), `${name}: key contacts with an email address get an email button`);
     check(!homeState.tiles.includes('Home page'), `${name}: no "Home page" section on the home screen`);
 
     // Web shortcuts
