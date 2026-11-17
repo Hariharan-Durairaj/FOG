@@ -133,10 +133,11 @@ input[type="search"]::-webkit-search-cancel-button, input[type="search"]::-webki
 .home-columns { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 .home-extras > *, .home-columns > * { min-width: 0; }
 .home-cards { display: grid; gap: 12px; }
-.home-card { padding: 14px 16px; background: var(--card); border: 1px solid var(--line); border-left: 6px solid #b42318; }
-.home-card h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; color: #b42318; font-size: 1.1rem; }
+/* Cards look like a workplace caution sign: yellow band, black text, black border */
+.home-card { background: #fff; border: 2px solid #1a1a1a; }
+.home-card h2 { display: flex; align-items: center; gap: 10px; margin: 0; padding: 10px 14px; background: #ffd400; color: #1a1a1a; font-size: 1rem; letter-spacing: .06em; text-transform: uppercase; }
 .home-card h2 svg { width: 22px; height: 22px; flex: none; }
-.home-card .prose { margin: 0; font-size: .97rem; }
+.home-card .prose { margin: 0; padding: 12px 14px; font-size: .97rem; }
 .home-card .prose > :last-child { margin-bottom: 0; }
 .home-quick ul { display: flex; gap: 8px; margin: 0; padding: 0 0 2px; list-style: none; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .home-quick li { flex: none; }
