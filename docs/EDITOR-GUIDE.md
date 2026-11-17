@@ -22,7 +22,9 @@ Other file types (Excel, PowerPoint, old `.doc` files) are ignored. Save old Wor
 
 Sections on the home screen and the topics inside each section are shown in **alphabetical order**.
 
-You can still start names with a number (`01 Safety`, `02 First Aid`) to keep the folder tidy in OneDrive. The number is not shown in the app and does not change the order. (An administrator can switch the app back to number order in the settings.)
+Name folders and files with just their title, for example `First Aid` or `Burns.docx`. There is no need to number them.
+
+A number followed by a space, full stop, underscore or hyphen at the start of a name (`01 Safety`) is treated as an old-style order number and is not shown in the app. If a title really starts with a number, write it without a space after the number or spell it out, for example `Triple Zero calls` rather than `000 calls`.
 
 ## Names with `/` or `:`
 
@@ -33,7 +35,7 @@ OneDrive does not allow `/` or `:` in names. Use these look-alike characters ins
 | `/` | `∕` |
 | `:` | `꞉` |
 
-Example: `07 Anaphylaxis ∕ Allergic Reactions` is shown as "Anaphylaxis / Allergic Reactions".
+Example: `Anaphylaxis ∕ Allergic Reactions` is shown as "Anaphylaxis / Allergic Reactions".
 
 ## Drafts
 

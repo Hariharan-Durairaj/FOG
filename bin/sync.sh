@@ -30,7 +30,7 @@ fingerprint() {
   {
     cd "$DATA/content" && find . -type f -print0 | sort -z | xargs -0 -r sha256sum
     find . -print0 | sort -z | xargs -0 -r stat -c '%n %Y' | sha256sum
-    cd "$APP" && cat config.mjs package-lock.json build/*.mjs src/* | sha256sum
+    cd "$APP" && find config.mjs package-lock.json build src -type f -print0 | sort -z | xargs -0 cat | sha256sum
   } | sha256sum | cut -d' ' -f1
 }
 
