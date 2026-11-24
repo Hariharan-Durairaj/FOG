@@ -172,7 +172,7 @@ function homeExtras(home) {
     .join('\n');
   const quick = home.quick.length
     ? `<nav class="home-quick" aria-labelledby="quick-title"><h2 class="kicker" id="quick-title">Quick access</h2><ul>${home.quick
-        .map((q) => `<li><a href="${esc(q.url)}">${esc(q.title)}</a></li>`)
+        .map((q) => `<li><a href="${esc(q.url)}"><span class="qa-icon">${ui.quick}</span><span class="qa-title">${esc(q.title)}</span>${ui.next}</a></li>`)
         .join('')}</ul></nav>`
     : '';
   const contacts = home.contacts.length

@@ -222,6 +222,12 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
       quickTitles.includes('Primary Assessment - DRSABCD') && quickTitles.includes("Head Injuries / Raccoon Eyes / Battle's Sign") && homeState.quick.some(([t, h]) => t === 'Resources' && h === 'first-aid/resources/'),
       `${name}: quick access finds pages despite Word dashes and quotes`, JSON.stringify(quickTitles),
     );
+    const quickLayout = await page.evaluate(() => {
+      const ul = document.querySelector('.home-quick ul');
+      const rows = [...ul.querySelectorAll('a')].map((a) => a.getBoundingClientRect());
+      return { sideways: ul.scrollWidth > ul.clientWidth + 1, fullWidth: rows.every((r) => r.width >= ul.clientWidth - 4), tall: rows.every((r) => r.height >= 60) };
+    });
+    check(!quickLayout.sideways && quickLayout.fullWidth && quickLayout.tall, `${name}: quick access is a list of full-width rows (no sideways scrolling)`, JSON.stringify(quickLayout));
     let quickBad = [];
     for (const [, href] of homeState.quick) if ((await page.goto(base + href)).status() !== 200) quickBad.push(href);
     check(quickBad.length === 0, `${name}: quick access links open offline`, quickBad.join(' '));
