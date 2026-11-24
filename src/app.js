@@ -65,24 +65,43 @@
     navigator.storage?.persist?.().catch(() => {});
   }
 
-  // ---------- Download app ----------
+  // ---------- Add to phone (card on the home screen) ----------
   const installBtn = $('#install');
-  if (installBtn) {
+  const installCard = $('#install-card');
+  if (installBtn && installCard) {
     const ua = navigator.userAgent;
     const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     const phone = ios || /Android/.test(ua) || navigator.userAgentData?.mobile === true;
     const standalone = matchMedia('(display-mode: standalone)');
     const installed = () => standalone.matches || navigator.standalone === true;
+    const DISMISSED = 'fog-install-closed';
+    const closed = () => {
+      try {
+        return localStorage.getItem(DISMISSED) === '1';
+      } catch {
+        return false;
+      }
+    };
     let prompt = null;
 
-    const refresh = () => (installBtn.hidden = !phone || installed());
+    const show = (visible) => {
+      installCard.hidden = !visible;
+      installBtn.hidden = !visible;
+    };
+    const refresh = () => show(phone && !installed() && !closed());
     addEventListener('beforeinstallprompt', (event) => {
       event.preventDefault();
       prompt = event;
     });
     addEventListener('appinstalled', () => {
       prompt = null;
-      installBtn.hidden = true;
+      show(false);
+    });
+    $('#install-close')?.addEventListener('click', () => {
+      try {
+        localStorage.setItem(DISMISSED, '1');
+      } catch {}
+      show(false);
     });
     standalone.addEventListener?.('change', refresh);
     refresh();
@@ -223,7 +242,7 @@
               }${text ? `<span class="result-text">${text}</span>` : ''}</a>`;
             })
             .join('')
-        : `<p class="empty">Nothing found for “${escapeHtml(query)}”.</p>`;
+        : `<div class="empty empty-help"><p><strong>Nothing found for “${escapeHtml(query)}”.</strong></p><p>Check the spelling, or try fewer or shorter words, for example “burn” or “chainsaw”.</p><p><a href="${escapeHtml(root)}sections/">Browse all sections</a></p></div>`;
       show(true);
       if (ticket === latest) scrollTo(0, 0);
     }
@@ -388,6 +407,7 @@
     const rows = [...document.querySelectorAll('#topics > li')].map((el) => ({ el, text: el.textContent.toLowerCase() }));
     const list = $('#topics');
     const none = $('#filter-empty');
+    const noneText = none.textContent.trim().replace(/\.$/, '');
     const apply = () => {
       const words = filter.value.toLowerCase().split(/\s+/).filter(Boolean);
       let shown = 0;
@@ -398,6 +418,11 @@
       }
       list.hidden = shown === 0;
       none.hidden = shown !== 0;
+      // Nothing here: offer to search the whole guide for the same words
+      if (shown === 0) {
+        const typed = filter.value.trim();
+        none.innerHTML = `${escapeHtml(noneText)} “${escapeHtml(typed)}”. <a href="${escapeHtml(root)}search/#q=${encodeURIComponent(typed)}">Search the whole guide</a>`;
+      }
     };
     filter.addEventListener('input', apply);
     addEventListener('pageshow', apply);

@@ -46,12 +46,20 @@ export const TABS = [
   { key: 'call', label: 'Call', icon: 'contacts', url: 'key-contacts/', long: 'Key contacts' },
   { key: 'w3w', label: 'what3words', icon: 'location', url: 'my-location/', long: 'what3words' },
 ];
-const tabbar = (r, tab) =>
-  `<nav class="tabbar" aria-label="Main">${TABS.map((t) => `<a href="${r}${t.url}"${t.key === tab ? ' aria-current="page"' : ''}>${ui[t.icon]}<span>${t.label}</span></a>`).join('')}</nav>`;
-const barLinks = (r, tab) =>
-  `<nav class="bar-links" aria-label="Shortcuts">${TABS.filter((t) => t.long).map((t) => `<a href="${r}${t.url}"${t.key === tab ? ' aria-current="page"' : ''}>${esc(t.long)}</a>`).join('')}</nav>`;
+const tabbar = (r, tab, current = 'page') =>
+  `<nav class="tabbar" aria-label="Main">${TABS.map((t) => `<a href="${r}${t.url}"${t.key === tab ? ` aria-current="${current}"` : ''}>${ui[t.icon]}<span>${t.label}</span></a>`).join('')}</nav>`;
+const barLinks = (r, tab, current = 'page') =>
+  `<nav class="bar-links" aria-label="Shortcuts">${TABS.filter((t) => t.long).map((t) => `<a href="${r}${t.url}"${t.key === tab ? ` aria-current="${current}"` : ''}>${esc(t.long)}</a>`).join('')}</nav>`;
 
-function shell({ url, title, bodyClass, header, main, tab = '' }) {
+// Footer: the Government of South Australia logo on navy. Left out on the Call and what3words pages.
+const footer = (r) =>
+  govLogo
+    ? `<footer class="foot"><div class="foot-in"><img class="foot-gov" src="${r}${govLogo.src}" alt="Government of South Australia" width="${govLogo.width}" height="${govLogo.height}"></div></footer>`
+    : '';
+
+// Header: three fixed slots on phones and tablets (back | SES logo | search); logo, title and links on wide screens.
+// `back` is { url, title } on section and document pages. `tabCurrent` is 'true' inside a section (Sections tab lit, not the page itself).
+function shell({ url, title, bodyClass, back = null, main, tab = '', tabCurrent = 'page', showFooter = true }) {
   const root = rootOf(url);
   const r = root || './';
   const pageTitle = title ? `${title} · ${config.siteName}` : config.siteName;
@@ -80,12 +88,14 @@ function shell({ url, title, bodyClass, header, main, tab = '' }) {
 <a class="skip" href="#main">Skip to content</a>
 <header class="bar">
 <div class="bar-in">
-${siteLogo ? `<a class="bar-logo" href="${r}" aria-label="Home"><img src="${r}${siteLogo.src}" alt="SES" width="${siteLogo.width}" height="${siteLogo.height}"></a>` : ''}
-${header(r)}
-${barLinks(r, tab)}
-<a class="bar-btn bar-search" href="${r}search/" aria-label="Search">${ui.search}</a>
-<button class="bar-btn" id="install" type="button" hidden aria-label="Download app">${ui.download}</button>
+<span class="bar-slot bar-left">${back ? `<a class="bar-btn bar-back" href="${r}${esc(back.url)}" aria-label="Back to ${esc(back.title)}">${ui.back}</a>` : ''}</span>
+${siteLogo ? `<a class="bar-logo" href="${r}" aria-label="Home"><img src="${r}${siteLogo.src}" alt="SA State Emergency Service" width="${siteLogo.width}" height="${siteLogo.height}"></a>` : ''}
+<span class="brand">${esc(config.headerName || config.shortName)}</span>
+<span class="bar-gap"></span>
+${barLinks(r, tab, tabCurrent)}
+<span class="bar-slot bar-right"><a class="bar-btn bar-search" href="${r}search/" aria-label="Search">${ui.search}</a></span>
 </div>
+${bodyClass === 'home' ? `<h1 class="home-title">${esc(config.headerName || config.siteName)}</h1>` : ''}
 <div class="search-bar" id="search-bar">
 <form class="search" id="search" role="search" action="${r}" autocomplete="off">
 <label class="sr" for="q">Search the guide</label>
@@ -102,22 +112,14 @@ ${ui.search}
 ${main(r)}
 </div>
 </main>
-<footer class="foot"><div class="foot-in">
-<div class="foot-logos">${siteLogo ? `<img class="foot-ses" src="${r}${siteLogo.src}" alt="SA State Emergency Service" width="${siteLogo.width}" height="${siteLogo.height}">` : ''}${
-    govLogo ? `<img class="foot-gov" src="${r}${govLogo.src}" alt="Government of South Australia" width="${govLogo.width}" height="${govLogo.height}">` : ''
-  }</div>
-<p class="foot-text"><span>${esc(config.description)}</span>${siteUpdated ? `<span>Updated ${esc(siteUpdated)}</span>` : ''}</p>
-</div></footer>
-${tabbar(r, tab)}
+${showFooter ? footer(r) : ''}
+${tabbar(r, tab, tabCurrent)}
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 </body>
 </html>
 `;
 }
 
-const innerHeader = (parentUrl, parentTitle) => (r) => `<a class="bar-back" href="${r}${esc(parentUrl)}" aria-label="Back to ${esc(parentTitle)}">${ui.back}<span>${esc(parentTitle)}</span></a>
-<span class="bar-gap"></span>
-<a class="bar-btn" href="${r}" aria-label="Home">${ui.home}</a>`;
 
 const crumbs = (items, r) =>
   items.length
@@ -171,7 +173,7 @@ function contactList(contacts) {
 }
 
 // Highlighted cards, quick access links and key contacts from the home page folder
-function homeExtras(home) {
+function homeExtras(home, quickIcon = () => ui.quick) {
   if (!home) return '';
   const warnIcon = svg('<path d="M12 3 2 21h20z"/><path d="M12 10v5"/><path d="M12 18h.01"/>');
   const cards = home.cards
@@ -181,18 +183,19 @@ function homeExtras(home) {
     .join('\n');
   const quick = home.quick.length
     ? `<nav class="home-quick" aria-labelledby="quick-title"><h2 class="kicker" id="quick-title">Quick access</h2><ul>${home.quick
-        .map((q) => `<li><a href="${esc(q.url)}"><span class="qa-icon">${ui.quick}</span><span class="qa-title">${esc(q.title)}</span>${ui.next}</a></li>`)
+        .map((q) => `<li><a href="${esc(q.url)}"><span class="qa-icon">${quickIcon(q)}</span><span class="qa-title">${esc(q.title)}</span>${ui.next}</a></li>`)
         .join('')}</ul></nav>`
     : '';
   const contacts = home.contacts.length
     ? `<section class="home-contacts" aria-labelledby="contacts-title"><h2 class="kicker" id="contacts-title">Key contacts</h2>${contactList(home.contacts)}</section>`
     : '';
   if (!cards && !quick && !contacts) return '';
+  // Order: highlighted cards (with key contacts beside them on wide screens), then quick access, then all sections
   return `<div class="home-extras">
+${cards || contacts ? `<div class="home-columns">${cards ? `<div class="home-cards">${cards}</div>` : ''}${contacts}</div>` : ''}
 ${quick}
-<div class="home-columns">${cards ? `<div class="home-cards">${cards}</div>` : ''}${contacts}</div>
 </div>
-<h2 class="kicker">All sections</h2>`;
+<div class="kicker-row"><h2 class="kicker">All sections</h2>${siteUpdated ? `<span class="kicker-meta">Updated ${esc(siteUpdated)}</span>` : ''}</div>`;
 }
 
 export function homePage({ sections, docs, icons, home }) {
@@ -227,15 +230,29 @@ export function homePage({ sections, docs, icons, home }) {
   const docEntry = (d) =>
     `<li class="${md(d)}"><a class="entry" href="${esc(d.url)}"><span class="icon">${ui.doc}</span><span class="entry-text"><span class="entry-title">${esc(d.title)}</span></span></a></li>`;
 
+  // Quick access rows show the icon of the section the page belongs to
+  const quickIcon = (q) => {
+    const top = sections.find((s) => s.url === `${q.url.split('/')[0]}/`);
+    const icon = top && icons.get(top);
+    if (icon?.inline) return icon.inline;
+    if (icon?.src) return `<img src="${esc(icon.src)}" alt="" width="24" height="24">`;
+    return ui.quick;
+  };
+  // Shown on phones in the browser until the guide is installed or the card is closed (app.js)
+  const installCard = `<section class="install-card" id="install-card" aria-labelledby="install-title" hidden>
+<span class="install-icon">${ui.download}</span>
+<div class="install-text"><h2 id="install-title">Add the guide to your phone</h2><p>Opens from your home screen and works without signal.</p></div>
+<div class="install-actions"><button class="install-btn" id="install" type="button">Add to phone</button><button class="install-close" id="install-close" type="button" aria-label="Close">${ui.close}</button></div>
+</section>`;
+
   return shell({
     url: '',
     title: '',
     bodyClass: 'home',
     tab: 'home',
-    header: () => `<span class="brand">${esc(config.headerName || config.shortName)}</span><span class="bar-gap"></span>`,
     main: () => `<div class="wrap">
-<h1 class="sr">${esc(config.siteName)}</h1>
-${homeExtras(home)}
+${installCard}
+${homeExtras(home, quickIcon)}
 <ul class="entries" id="entries">
 ${desktopRows([...sections.map((x) => [x, entry(x)]), ...docs.map((x) => [x, docEntry(x)])], sizeOf).join('\n')}
 </ul>
@@ -245,7 +262,6 @@ ${desktopRows([...sections.map((x) => [x, entry(x)]), ...docs.map((x) => [x, doc
 
 // ---------- Bottom bar pages ----------
 
-const tabHeader = () => `<span class="brand">${esc(config.headerName || config.shortName)}</span><span class="bar-gap"></span>`;
 
 export function searchPage({ count }) {
   return shell({
@@ -253,7 +269,6 @@ export function searchPage({ count }) {
     title: 'Search',
     bodyClass: 'search-page',
     tab: 'search',
-    header: tabHeader,
     main: () => `<div class="wrap narrow"><h1>Search</h1><p class="meta">Search all ${count} pages by title or text. Works without signal.</p></div>`,
   });
 }
@@ -266,8 +281,7 @@ export function sectionsPage({ sections, docs, icons }) {
     title: 'All sections',
     bodyClass: 'tab-page',
     tab: 'sections',
-    header: tabHeader,
-    main: (r) => `<div class="wrap narrow"><h1>All sections</h1><p class="meta">${plural(rows.length, 'section')}</p>
+    main: (r) => `<div class="wrap narrow"><h1>All sections</h1><p class="meta">${plural(rows.length, 'section')}${siteUpdated ? ` · Updated ${esc(siteUpdated)}` : ''}</p>
 <div class="filter">
 <label class="sr" for="filter">Filter sections</label>
 ${ui.search}
@@ -294,7 +308,7 @@ export function contactsPage({ home }) {
     title: 'Key contacts',
     bodyClass: 'tab-page',
     tab: 'call',
-    header: tabHeader,
+    showFooter: false,
     main: () => `<div class="wrap narrow"><h1>Key contacts</h1><p class="meta">Tap to call or email.</p>
 ${home.contacts.length ? `<div class="home-contacts">${contactList(home.contacts)}</div>` : '<p class="empty">No contacts have been added yet.</p>'}
 </div>`,
@@ -307,7 +321,7 @@ export function locationPage({ w3wKey }) {
     title: 'what3words',
     bodyClass: 'tab-page',
     tab: 'w3w',
-    header: tabHeader,
+    showFooter: false,
     main: () => `<div class="wrap narrow"><h1>what3words</h1>
 <section class="loc-card" aria-labelledby="pos-title">
 <h2 id="pos-title">My position</h2>
@@ -352,7 +366,9 @@ ${ui.search}
     url: section.url,
     title: section.title,
     bodyClass: 'section',
-    header: innerHeader(parent.url, parent.title || 'Home'),
+    tab: 'sections',
+    tabCurrent: 'true',
+    back: { url: parent.url, title: parent.title || 'Home' },
     main: (r) => `<div class="wrap narrow">
 ${crumbs(parent.trail, r)}
 <div class="head">
@@ -385,7 +401,9 @@ ${converted.headings.map((h) => `<li><a href="#${h.id}">${esc(h.text)}</a></li>`
     url: doc.url,
     title: doc.title,
     bodyClass: 'doc',
-    header: innerHeader(parent.url, parent.title || 'Home'),
+    tab: 'sections',
+    tabCurrent: 'true',
+    back: { url: parent.url, title: parent.title || 'Home' },
     main: (r) => `<article class="wrap narrow">
 ${crumbs(parent.trail, r)}
 <h1>${esc(doc.title)}</h1>
