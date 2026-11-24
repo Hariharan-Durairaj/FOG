@@ -293,7 +293,6 @@ ${home.contacts.length ? `<div class="home-contacts">${contactList(home.contacts
 }
 
 export function locationPage({ w3wKey }) {
-  const L = config.links;
   return shell({
     url: 'my-location/',
     title: 'what3words',
@@ -311,14 +310,6 @@ export function locationPage({ w3wKey }) {
 <div class="loc-actions"><button type="button" class="line-btn" id="loc-copy">Copy</button><button type="button" class="line-btn" id="loc-share" hidden>Share</button><a class="line-btn" id="loc-map" target="_blank" rel="noopener noreferrer">Open in Maps</a></div>
 </div>
 <p class="loc-error" id="loc-error" role="alert" hidden></p>
-</section>
-<section class="loc-card" aria-labelledby="w3w-mine-title">
-<h2 id="w3w-mine-title">My what3words address</h2>
-<p>To give 000 your exact spot, open one of these apps and read out the three words it shows. The what3words app works without signal.</p>
-<div class="app-links">
-<a class="line-btn" data-ios="${esc(L.what3words.ios)}" data-android="${esc(L.what3words.android)}" href="${esc(L.what3words.web)}" target="_blank" rel="noopener noreferrer">what3words app</a>
-<a class="line-btn" data-ios="${esc(L.emergencyPlus.ios)}" data-android="${esc(L.emergencyPlus.android)}" href="${esc(L.emergencyPlus.web)}" target="_blank" rel="noopener noreferrer">Emergency+ app</a>
-</div>
 </section>
 ${w3wKey ? `<section class="loc-card" aria-labelledby="w3w-find-title" id="w3w-find" data-key="${esc(w3wKey)}">
 <h2 id="w3w-find-title">Find a what3words address</h2>

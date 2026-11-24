@@ -332,14 +332,6 @@
     share.addEventListener('click', () => navigator.share?.({ title: 'My location', text: `My location: ${text}` }).catch(() => {}));
   }
 
-  // App buttons go to the right store for the phone
-  const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const isAndroid = /Android/.test(navigator.userAgent);
-  for (const a of document.querySelectorAll('.app-links a')) {
-    if (isIos && a.dataset.ios) a.href = a.dataset.ios;
-    else if (isAndroid && a.dataset.android) a.href = a.dataset.android;
-  }
-
   // ---------- Find a what3words address ----------
   const w3wBox = $('#w3w-find');
   if (w3wBox) {

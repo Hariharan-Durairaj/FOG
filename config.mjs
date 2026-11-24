@@ -52,17 +52,6 @@ export default {
   links: {
     timeoutSeconds: 60,
     maxMegabytes: 50,
-    // Apps opened from the My location page
-    what3words: {
-      web: 'https://what3words.com/products/what3words-app',
-      ios: 'https://apps.apple.com/au/app/what3words/id657878530',
-      android: 'https://play.google.com/store/apps/details?id=com.what3words.android',
-    },
-    emergencyPlus: {
-      web: 'https://emergencyplus.com.au/',
-      ios: 'https://apps.apple.com/au/app/emergency-plus/id691814685',
-      android: 'https://play.google.com/store/apps/details?id=com.threesixtyentertainment.nesn',
-    },
   },
   // The what3words address lookup appears only when the build has the key in the
   // environment variable FOG_W3W_KEY (never store the key in this file).
