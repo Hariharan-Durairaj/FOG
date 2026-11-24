@@ -27,6 +27,7 @@
 
   // ---------- Offline copy and updates ----------
   const UPDATED = 'The guide has been updated with the latest information.';
+  let swRegistration = null;
   if ('serviceWorker' in navigator) {
     const sw = navigator.serviceWorker;
     const firstVisit = !sw.controller;
@@ -56,6 +57,7 @@
 
     sw.register(`${root}sw.js`, { scope: root, updateViaCache: 'none' })
       .then((registration) => {
+        swRegistration = registration;
         const check = () => navigator.onLine && registration.update().catch(() => {});
         addEventListener('online', check);
         document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && check());
@@ -65,15 +67,40 @@
     navigator.storage?.persist?.().catch(() => {});
   }
 
-  // ---------- Add to phone (card on the home screen) ----------
+  // ---------- Add to phone (card on Home and an item in the menu) ----------
+  const ua = navigator.userAgent;
+  const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const phone = ios || /Android/.test(ua) || navigator.userAgentData?.mobile === true;
+  const standalone = matchMedia('(display-mode: standalone)');
+  const installed = () => standalone.matches || navigator.standalone === true;
+  const canInstall = () => phone && !installed();
+  let installPrompt = null;
+  addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    installPrompt = event;
+  });
+  async function openInstall() {
+    if (installPrompt) {
+      installPrompt.prompt();
+      await installPrompt.userChoice.catch(() => {});
+      installPrompt = null;
+      return;
+    }
+    const steps = ios
+      ? [`Tap <strong>Share</strong> ${ICON_SHARE}`, 'Choose <strong>Add to Home Screen</strong>', 'Tap <strong>Add</strong>']
+      : ['Open the browser menu <strong>⋮</strong>', 'Choose <strong>Install app</strong> or <strong>Add to Home screen</strong>', 'Tap <strong>Install</strong>'];
+    const sheet = document.createElement('dialog');
+    sheet.className = 'sheet';
+    sheet.innerHTML = `<h2>Add the guide to your phone</h2><ol>${steps.map((s) => `<li>${s}</li>`).join('')}</ol><form method="dialog"><button>Close</button></form>`;
+    sheet.addEventListener('close', () => sheet.remove());
+    sheet.addEventListener('click', (event) => event.target === sheet && sheet.close());
+    document.body.append(sheet);
+    sheet.showModal();
+  }
+
   const installBtn = $('#install');
   const installCard = $('#install-card');
   if (installBtn && installCard) {
-    const ua = navigator.userAgent;
-    const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const phone = ios || /Android/.test(ua) || navigator.userAgentData?.mobile === true;
-    const standalone = matchMedia('(display-mode: standalone)');
-    const installed = () => standalone.matches || navigator.standalone === true;
     const DISMISSED = 'fog-install-closed';
     const closed = () => {
       try {
@@ -82,21 +109,12 @@
         return false;
       }
     };
-    let prompt = null;
-
     const show = (visible) => {
       installCard.hidden = !visible;
       installBtn.hidden = !visible;
     };
-    const refresh = () => show(phone && !installed() && !closed());
-    addEventListener('beforeinstallprompt', (event) => {
-      event.preventDefault();
-      prompt = event;
-    });
-    addEventListener('appinstalled', () => {
-      prompt = null;
-      show(false);
-    });
+    const refresh = () => show(canInstall() && !closed());
+    addEventListener('appinstalled', () => show(false));
     $('#install-close')?.addEventListener('click', () => {
       try {
         localStorage.setItem(DISMISSED, '1');
@@ -105,24 +123,130 @@
     });
     standalone.addEventListener?.('change', refresh);
     refresh();
+    installBtn.addEventListener('click', openInstall);
+  }
 
-    installBtn.addEventListener('click', async () => {
-      if (prompt) {
-        prompt.prompt();
-        await prompt.userChoice.catch(() => {});
-        prompt = null;
-        return;
+  // ---------- Theme: light unless the user picks Dark or Match phone in the menu ----------
+  const THEME = 'fog-theme';
+  const darkQuery = matchMedia('(prefers-color-scheme: dark)');
+  const themeChoice = () => {
+    try {
+      return localStorage.getItem(THEME) || 'light';
+    } catch {
+      return 'light';
+    }
+  };
+  const applyTheme = () => {
+    const choice = themeChoice();
+    const dark = choice === 'dark' || (choice === 'auto' && darkQuery.matches);
+    if (dark) document.documentElement.dataset.theme = 'dark';
+    else delete document.documentElement.dataset.theme;
+  };
+  darkQuery.addEventListener?.('change', applyTheme);
+  applyTheme();
+
+  // ---------- Text size (menu): Normal, Large, Larger ----------
+  const TEXT_SIZE = 'fog-text-size';
+  const sizeChoice = () => {
+    try {
+      return localStorage.getItem(TEXT_SIZE) || 'normal';
+    } catch {
+      return 'normal';
+    }
+  };
+  const applySize = () => {
+    const size = sizeChoice();
+    if (size === 'large' || size === 'larger') document.documentElement.dataset.textSize = size;
+    else delete document.documentElement.dataset.textSize;
+  };
+  applySize();
+
+  // ---------- Recently viewed: the last 5 documents opened on this device ----------
+  const RECENT = 'fog-recent';
+  const readRecent = () => {
+    try {
+      const list = JSON.parse(localStorage.getItem(RECENT) || '[]');
+      return Array.isArray(list) ? list : [];
+    } catch {
+      return [];
+    }
+  };
+  if (document.body.classList.contains('doc')) {
+    const title = $('main h1')?.textContent.trim();
+    const where = [...document.querySelectorAll('.crumbs a')].pop()?.textContent.trim() || '';
+    const path = location.pathname;
+    if (title) {
+      const list = [{ path, title, where }, ...readRecent().filter((item) => item.path !== path)].slice(0, 5);
+      try {
+        localStorage.setItem(RECENT, JSON.stringify(list));
+      } catch {}
+    }
+  }
+
+  // ---------- Menu ----------
+  const menu = $('#menu');
+  if (menu) {
+    const status = $('#menu-status');
+    const menuInstall = $('#menu-install');
+    const showStatus = () => {
+      if (!('serviceWorker' in navigator)) status.textContent = 'This browser cannot keep a copy for use without signal.';
+      else if (navigator.serviceWorker.controller) status.textContent = 'Saved on this device. Works without signal.';
+      else status.textContent = 'Not saved yet. Keep the guide open with signal for a minute to save it.';
+    };
+    const recentList = $('#recent-list');
+    const recentEmpty = $('#recent-empty');
+    const showRecent = () => {
+      const list = readRecent().filter((item) => item.path !== location.pathname || !document.body.classList.contains('doc'));
+      recentList.innerHTML = list
+        .map((item) => `<li><a href="${escapeHtml(item.path)}"><b>${escapeHtml(item.title)}</b>${item.where ? `<small>${escapeHtml(item.where)}</small>` : ''}</a></li>`)
+        .join('');
+      recentList.hidden = !list.length;
+      recentEmpty.hidden = !!list.length;
+    };
+    const report = $('#menu-report');
+    $('#menu-btn')?.addEventListener('click', () => {
+      const choice = themeChoice();
+      for (const radio of menu.querySelectorAll('input[name="theme"]')) radio.checked = radio.value === choice;
+      const size = sizeChoice();
+      for (const radio of menu.querySelectorAll('input[name="text-size"]')) radio.checked = radio.value === size;
+      showRecent();
+      if (report) {
+        const page = $('main h1')?.textContent.trim() || document.title;
+        const subject = `FOG: problem with "${page}"`;
+        const body = `Page: ${location.href.split('#')[0]}\n\nWhat is wrong or missing:\n\n`;
+        report.href = `mailto:${report.dataset.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
       }
-      const steps = ios
-        ? [`Tap <strong>Share</strong> ${ICON_SHARE}`, 'Choose <strong>Add to Home Screen</strong>', 'Tap <strong>Add</strong>']
-        : ['Open the browser menu <strong>⋮</strong>', 'Choose <strong>Install app</strong> or <strong>Add to Home screen</strong>', 'Tap <strong>Install</strong>'];
-      const sheet = document.createElement('dialog');
-      sheet.className = 'sheet';
-      sheet.innerHTML = `<h2>Add the guide to your phone</h2><ol>${steps.map((s) => `<li>${s}</li>`).join('')}</ol><form method="dialog"><button>Close</button></form>`;
-      sheet.addEventListener('close', () => sheet.remove());
-      sheet.addEventListener('click', (event) => event.target === sheet && sheet.close());
-      document.body.append(sheet);
-      sheet.showModal();
+      showStatus();
+      menuInstall.hidden = !canInstall();
+      menu.showModal();
+    });
+    $('#menu-close').addEventListener('click', () => menu.close());
+    // A tap outside the panel closes it
+    menu.addEventListener('click', (event) => event.target === menu && menu.close());
+    menu.addEventListener('change', (event) => {
+      const { name, value } = event.target;
+      if (name !== 'theme' && name !== 'text-size') return;
+      try {
+        localStorage.setItem(name === 'theme' ? THEME : TEXT_SIZE, value);
+      } catch {}
+      if (name === 'theme') applyTheme();
+      else applySize();
+    });
+    $('#menu-update').addEventListener('click', async () => {
+      if (!navigator.onLine) return toast('Needs signal to check for updates.');
+      if (!swRegistration) return toast('Updates are not available in this browser.');
+      toast('Checking for updates…', { keep: true });
+      try {
+        await swRegistration.update();
+        if (swRegistration.installing || swRegistration.waiting) toast('Downloading the latest version…', { keep: true });
+        else toast('The guide is up to date.');
+      } catch {
+        toast('Could not check for updates. Try again with better signal.');
+      }
+    });
+    menuInstall.addEventListener('click', () => {
+      menu.close();
+      openInstall();
     });
   }
 

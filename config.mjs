@@ -57,5 +57,8 @@ export default {
   // The what3words address lookup appears only when the build has the key in the
   // environment variable FOG_W3W_KEY (never store the key in this file).
 
+  // Menu: "Report a problem with this page" opens an email to this address. Leave empty to hide the item.
+  feedbackEmail: 'hariharan.durairaj@eso.sa.gov.au',
+
   colours: { theme: '#1e3d78', background: '#f4f6fa' }, // SES Navy (brand guide: #1E3D78) and the page background
 };

@@ -11,6 +11,13 @@ export const ui = {
   search: svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>'),
   download: svg('<path d="M12 4v11"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/>'),
   close: svg('<path d="M6 6l12 12M18 6L6 18"/>'),
+  menu: svg('<path d="M4 7h16M4 12h16M4 17h16"/>'),
+  mail: svg('<rect x="3" y="5" width="18" height="14"/><path d="m3 6 9 7 9-7"/>'),
+  sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+  moon: svg('<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>'),
+  phone: svg('<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>'),
+  saved: svg('<path d="M5 12l5 5 9-10"/>'),
+  refresh: svg('<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/>'),
   offline: svg('<path d="M3 3l18 18"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M5 13a10 10 0 0 1 3-2M19 13a10 10 0 0 0-5-2.7"/><path d="M2 9.5a15 15 0 0 1 4-2.6M22 9.5A15 15 0 0 0 10.5 5"/><path d="M12 20h.01"/>'),
   folder: svg('<path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'),
   doc: svg('<path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/>'),
@@ -82,13 +89,14 @@ function shell({ url, title, bodyClass, back = null, main, tab = '', tabCurrent 
 <link rel="icon" href="${r}icons/favicon.png" type="image/png" sizes="48x48">
 <link rel="apple-touch-icon" href="${r}icons/apple-touch-icon.png">
 <link rel="stylesheet" href="${r}assets/app.css">
+<script>try{var d=document.documentElement,t=localStorage.getItem('fog-theme'),z=localStorage.getItem('fog-text-size');if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if(t==='dark')d.dataset.theme='dark';if(z==='large'||z==='larger')d.dataset.textSize=z}catch(e){}</script>
 <script src="${r}assets/app.js" defer></script>
 </head>
-<body class="${bodyClass}">
+<body class="${bodyClass}${back ? ' has-back' : ''}">
 <a class="skip" href="#main">Skip to content</a>
 <header class="bar">
 <div class="bar-in">
-<span class="bar-slot bar-left">${back ? `<a class="bar-btn bar-back" href="${r}${esc(back.url)}" aria-label="Back to ${esc(back.title)}">${ui.back}</a>` : ''}</span>
+<span class="bar-slot bar-left">${back ? `<a class="bar-btn bar-back" href="${r}${esc(back.url)}" aria-label="Back to ${esc(back.title)}">${ui.back}</a>` : ''}<button class="bar-btn bar-menu" id="menu-btn" type="button" aria-label="Menu" aria-haspopup="dialog" aria-controls="menu">${ui.menu}</button></span>
 ${siteLogo ? `<a class="bar-logo" href="${r}" aria-label="Home"><img src="${r}${siteLogo.src}" alt="SA State Emergency Service" width="${siteLogo.width}" height="${siteLogo.height}"></a>` : ''}
 <span class="brand">${esc(config.headerName || config.shortName)}</span>
 <span class="bar-gap"></span>
@@ -114,6 +122,42 @@ ${main(r)}
 </main>
 ${showFooter ? footer(r) : ''}
 ${tabbar(r, tab, tabCurrent)}
+<dialog class="menu" id="menu" aria-labelledby="menu-title">
+<div class="menu-head"><h2 id="menu-title">Menu</h2><button class="menu-close" type="button" id="menu-close" aria-label="Close menu">${ui.close}</button></div>
+<section class="menu-group" aria-labelledby="theme-title">
+<h3 id="theme-title">Appearance</h3>
+<div class="theme-choice" role="radiogroup" aria-labelledby="theme-title">
+<label><input type="radio" name="theme" value="light">${ui.sun}<span>Light</span></label>
+<label><input type="radio" name="theme" value="dark">${ui.moon}<span>Dark</span></label>
+<label><input type="radio" name="theme" value="auto">${ui.phone}<span>Match phone</span></label>
+</div>
+</section>
+<section class="menu-group" aria-labelledby="size-title">
+<h3 id="size-title">Text size</h3>
+<div class="size-choice" role="radiogroup" aria-labelledby="size-title">
+<label><input type="radio" name="text-size" value="normal"><span class="size-a" aria-hidden="true">A</span><span>Normal</span></label>
+<label><input type="radio" name="text-size" value="large"><span class="size-a" aria-hidden="true">A</span><span>Large</span></label>
+<label><input type="radio" name="text-size" value="larger"><span class="size-a" aria-hidden="true">A</span><span>Larger</span></label>
+</div>
+</section>
+<section class="menu-group" aria-labelledby="recent-title">
+<h3 id="recent-title">Recently viewed</h3>
+<ul class="recent-list" id="recent-list" hidden></ul>
+<p class="recent-empty" id="recent-empty">Pages you open will appear here.</p>
+</section>
+<section class="menu-group" aria-labelledby="offline-title">
+<h3 id="offline-title">Offline copy</h3>
+<p class="menu-status" id="menu-status"></p>
+${siteUpdated ? `<p class="menu-meta">Guide updated ${esc(siteUpdated)}</p>` : ''}
+<button class="menu-btn" type="button" id="menu-update">${ui.refresh}<span>Check for updates</span></button>
+<button class="menu-btn" type="button" id="menu-install" hidden>${ui.download}<span>Add the guide to your phone</span></button>
+</section>
+${config.feedbackEmail ? `<section class="menu-group" aria-labelledby="report-title">
+<h3 id="report-title">Something wrong?</h3>
+<a class="menu-link" id="menu-report" href="mailto:${esc(config.feedbackEmail)}" data-email="${esc(config.feedbackEmail)}">${ui.mail}<span>Report a problem with this page</span></a>
+</section>` : ''}
+<p class="menu-foot">${esc(config.description)}</p>
+</dialog>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 </body>
 </html>

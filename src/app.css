@@ -36,7 +36,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 17px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font: 1.0625rem/1.55 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   overflow-wrap: break-word;
   -webkit-tap-highlight-color: transparent;
   /* Fill the screen so the footer sits at the bottom on short pages */
@@ -83,6 +83,59 @@ svg { display: block; }
   .home .search-bar { background: var(--ink); border-bottom: 0; padding-top: 0; padding-bottom: 16px; }
   .home .search input { border-color: #fff; }
 }
+
+/* Text size (menu): scales everything sized in rem; the header and bottom bar keep their size */
+:root[data-text-size="large"] { font-size: 112.5%; }
+:root[data-text-size="larger"] { font-size: 125%; }
+
+/* Menu button: top left. Section and document pages on phones show the back arrow there instead; wide screens always show the menu. */
+.has-back .bar-menu { display: none; }
+@media (min-width: 1000px) {
+  .bar-slot.bar-left { display: flex; margin-right: 4px; }
+  .has-back .bar-menu { display: inline-flex; }
+  .bar-back { display: none; }
+}
+
+/* Menu panel: slides in from the left */
+.menu { position: fixed; inset: 0 auto 0 0; width: min(340px, 88vw); max-width: none; height: 100dvh; max-height: none; margin: 0; padding: 0 0 env(safe-area-inset-bottom); border: 0; background: var(--bg); color: var(--text); overflow-y: auto; }
+.menu::backdrop { background: rgba(8, 12, 22, .55); }
+.menu[open] { animation: menu-in .18s cubic-bezier(.2, .8, .2, 1); }
+@keyframes menu-in { from { transform: translateX(-24px); opacity: .6; } }
+@media (prefers-reduced-motion: reduce) { .menu[open] { animation: none; } }
+.menu-head { display: flex; align-items: center; justify-content: space-between; min-height: calc(var(--bar) + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 6px 0 16px; background: var(--ink); color: #fff; }
+.menu-head h2 { font-size: 1.15rem; }
+.menu-close { display: grid; place-items: center; width: 48px; height: 48px; border: 0; background: none; color: #fff; cursor: pointer; }
+.menu-close svg { width: 24px; height: 24px; }
+.menu-group { margin: 16px 16px 0; padding: 14px; background: var(--card); border: 1px solid var(--line); }
+.menu-group h3 { margin-bottom: 10px; font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.theme-choice, .size-choice { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line-strong); }
+.theme-choice label, .size-choice label { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; color: var(--ink-soft); font-size: .85rem; font-weight: 600; text-align: center; cursor: pointer; }
+.theme-choice label + label, .size-choice label + label { border-left: 1px solid var(--line-strong); }
+.theme-choice svg, .size-choice svg { width: 22px; height: 22px; }
+.theme-choice input, .size-choice input { position: absolute; opacity: 0; pointer-events: none; }
+.theme-choice label:has(input:checked), .size-choice label:has(input:checked) { background: var(--ink); color: #fff; }
+.theme-choice label:has(input:focus-visible), .size-choice label:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: -3px; }
+.menu-status { font-weight: 600; }
+.menu-meta { margin-top: 2px; color: var(--muted); font-size: .9rem; }
+.menu-btn { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; margin-top: 12px; padding: 0 14px; border: 2px solid var(--text); background: var(--card); color: var(--text); font: inherit; font-weight: 700; text-align: left; cursor: pointer; }
+.menu-btn[hidden] { display: none; }
+.menu-btn svg { width: 20px; height: 20px; flex: none; }
+.menu-btn:active { background: var(--press); }
+.menu-foot { margin: 18px 16px 20px; color: var(--muted); font-size: .85rem; }
+.size-choice label:nth-child(1) .size-a { font-size: 15px; }
+.size-choice label:nth-child(2) .size-a { font-size: 19px; }
+.size-choice label:nth-child(3) .size-a { font-size: 23px; }
+.size-a { font-weight: 800; line-height: 22px; }
+.recent-list { margin: 0; padding: 0; list-style: none; border: 1px solid var(--line); }
+.recent-list li + li { border-top: 1px solid var(--line); }
+.recent-list a { display: block; padding: 10px 12px; color: var(--text); text-decoration: none; }
+.recent-list a:active { background: var(--press); }
+.recent-list b { display: block; font-weight: 650; line-height: 1.3; }
+.recent-list small { color: var(--muted); font-size: .82rem; }
+.recent-empty { color: var(--muted); font-size: .92rem; }
+.menu-link { display: flex; align-items: center; gap: 10px; min-height: 48px; margin-top: 12px; padding: 0 14px; border: 2px solid var(--text); color: var(--text); font-weight: 700; text-decoration: none; }
+.menu-link svg { width: 20px; height: 20px; flex: none; }
+.menu-link:active { background: var(--press); }
 
 /* Add to phone: a card at the top of Home, shown in phone browsers until added or closed */
 .install-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "icon text close" "icon add add"; align-items: start; column-gap: 12px; row-gap: 10px; margin-bottom: 16px; padding: 12px 6px 14px 14px; background: var(--card); border: 1px solid var(--line); }
@@ -175,7 +228,7 @@ input[type="search"]::-webkit-search-cancel-button, input[type="search"]::-webki
   .entry-md { flex: 2 1 0; }
   .entry-lg { flex: 3 1 0; }
   .entry-xl { flex: 4 1 0; }
-  .entry { height: 150px; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 12px; padding: 16px; }
+  .entry { height: auto; min-height: 150px; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 12px; padding: 16px; }
   .entry .icon { width: 48px; height: 48px; }
   .entry .icon svg { width: 28px; height: 28px; }
   .entry-text { gap: 4px; }
@@ -245,7 +298,7 @@ input[type="search"]::-webkit-search-cancel-button, input[type="search"]::-webki
 
 /* ---------- Bottom bar (phones and tablets) and header links (wide screens) ---------- */
 .tabbar { position: fixed; z-index: 25; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--card); border-top: 1px solid var(--line); padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); box-shadow: 0 -2px 10px rgba(17, 34, 68, .08); }
-.tabbar a { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 64px; padding: 6px 2px; color: var(--ink-soft); font-size: .8rem; font-weight: 700; text-decoration: none; }
+.tabbar a { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 64px; padding: 6px 2px; color: var(--ink-soft); font-size: 12.8px; /* fixed so the bar keeps its height at any text size */ font-weight: 700; text-decoration: none; }
 .tabbar a svg { width: 26px; height: 26px; }
 /* Selected tab: the whole button is shaded, with an orange line on top and a navy label */
 .tabbar a[aria-current] { background: var(--press); color: var(--text); }
@@ -434,38 +487,36 @@ dialog { color: var(--text); }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; scroll-behavior: auto !important; }
 }
-/* ---------- Dark theme (follows the phone's setting; for night call-outs) ---------- */
+/* ---------- Dark theme (chosen in the menu: Dark, or Match phone; light is the default) ---------- */
 /* The header, footer and buttons stay SES Navy; the caution card keeps its yellow sign band. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --text: #e6ebf5;
-    --ink-soft: #c3cbdc;
-    --muted: #9ba7c0;
-    --bg: #0e1729;
-    --card: #16213a;
-    --hover: #1b2846;
-    --press: #24345c;
-    --press-strong: #2c3f6e;
-    --line: #2c3a58;
-    --line-strong: #6f7c99;
-    --accent-soft: #3a2412;
-    --accent-line: #6b3a17;
-    --accent-hover: #4a2c14;
-    --table-line: #3a4a6b;
-    --caution-border: #ffd400;
-    --link: #8cb4ff;
-    --focus: #ff7a1a;
-  }
-  .tabbar { box-shadow: 0 -2px 10px rgba(0, 0, 0, .4); }
-  .entry-xl .entry { border-color: #2f5296; }
-  mark { color: #14213d; }
-  .home .search input { border-color: var(--line-strong); }
-  /* Word documents: shaded cells and highlights keep dark text; strong colours are lifted so they read on the dark page */
-  .prose [style*="background-color"] { color: #14213d; }
-  .prose [style*="color:#c00000"]:not([style*="background"]), .prose [style*="color:#ff0000"]:not([style*="background"]) { color: #ff8a8a !important; }
-  .prose [style*="color:#3a3a3a"]:not([style*="background"]), .prose [style*="color:#000000"]:not([style*="background"]) { color: var(--text) !important; }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --text: #e6ebf5;
+  --ink-soft: #c3cbdc;
+  --muted: #9ba7c0;
+  --bg: #0e1729;
+  --card: #16213a;
+  --hover: #1b2846;
+  --press: #24345c;
+  --press-strong: #2c3f6e;
+  --line: #2c3a58;
+  --line-strong: #6f7c99;
+  --accent-soft: #3a2412;
+  --accent-line: #6b3a17;
+  --accent-hover: #4a2c14;
+  --table-line: #3a4a6b;
+  --caution-border: #ffd400;
+  --link: #8cb4ff;
+  --focus: #ff7a1a;
 }
+[data-theme="dark"] .tabbar { box-shadow: 0 -2px 10px rgba(0, 0, 0, .4); }
+[data-theme="dark"] .entry-xl .entry { border-color: #2f5296; }
+[data-theme="dark"] mark { color: #14213d; }
+[data-theme="dark"] .home .search input { border-color: var(--line-strong); }
+/* Word documents: shaded cells and highlights keep dark text; strong colours are lifted so they read on the dark page */
+[data-theme="dark"] .prose [style*="background-color"] { color: #14213d; }
+[data-theme="dark"] .prose [style*="color:#c00000"]:not([style*="background"]), [data-theme="dark"] .prose [style*="color:#ff0000"]:not([style*="background"]) { color: #ff8a8a !important; }
+[data-theme="dark"] .prose [style*="color:#3a3a3a"]:not([style*="background"]), [data-theme="dark"] .prose [style*="color:#000000"]:not([style*="background"]) { color: var(--text) !important; }
 
 @media print {
   .foot, .bar, .notice, .toast, .filter, .skip, .tabbar, .search-bar { display: none !important; }
