@@ -59,8 +59,11 @@ const server = http.createServer(async (req, res) => {
     } catch {
       pathname = '/\0';
     }
-    const file = path.join(dir, path.normalize(pathname));
-    if (pathname.includes('\0') || (file !== dir && !file.startsWith(dir + path.sep))) throw Object.assign(new Error('outside'), { code: 'ENOENT' });
+    // Optional folder of design samples, kept outside the site so rebuilds do not remove it
+    const samples = process.env.FOG_SAMPLES && pathname.startsWith('/samples/') ? path.resolve(process.env.FOG_SAMPLES) : null;
+    const root = samples || dir;
+    const file = path.join(root, path.normalize(samples ? pathname.slice('/samples'.length) : pathname));
+    if (pathname.includes('\0') || (file !== root && !file.startsWith(root + path.sep))) throw Object.assign(new Error('outside'), { code: 'ENOENT' });
 
     let target = file;
     const stat = await fs.promises.stat(file);
