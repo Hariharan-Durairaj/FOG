@@ -154,7 +154,7 @@ ${siteUpdated ? `<p class="menu-meta">Guide updated ${esc(siteUpdated)}</p>` : '
 </section>
 ${config.feedbackEmail ? `<section class="menu-group" aria-labelledby="report-title">
 <h3 id="report-title">Something wrong?</h3>
-<a class="menu-link" id="menu-report" href="mailto:${esc(config.feedbackEmail)}" data-email="${esc(config.feedbackEmail)}">${ui.mail}<span>Report a problem with this page</span></a>
+<a class="menu-link" id="menu-report" href="mailto:${esc(config.feedbackEmail)}" data-email="${esc(config.feedbackEmail)}">${ui.mail}<span>Report a problem</span></a>
 </section>` : ''}
 <p class="menu-foot">${esc(config.description)}</p>
 </dialog>

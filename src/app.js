@@ -223,6 +223,63 @@
     $('#menu-close').addEventListener('click', () => menu.close());
     // A tap outside the panel closes it
     menu.addEventListener('click', (event) => event.target === menu && menu.close());
+    // Swiping the panel to the left closes it: it follows the finger and springs back if the swipe is short.
+    // Up and down movements are left to scrolling.
+    const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+    let startX = 0;
+    let startY = 0;
+    let shift = 0;
+    let swipe = null; // null = undecided, true = sideways swipe, false = scroll
+    const resetSwipe = () => {
+      menu.style.transition = '';
+      menu.style.transform = '';
+    };
+    menu.addEventListener(
+      'touchstart',
+      (event) => {
+        if (event.touches.length !== 1) return;
+        startX = event.touches[0].clientX;
+        startY = event.touches[0].clientY;
+        shift = 0;
+        swipe = null;
+        menu.style.transition = 'none';
+      },
+      { passive: true },
+    );
+    menu.addEventListener(
+      'touchmove',
+      (event) => {
+        if (swipe === false || event.touches.length !== 1) return;
+        const dx = event.touches[0].clientX - startX;
+        const dy = event.touches[0].clientY - startY;
+        if (swipe === null) {
+          if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+          swipe = Math.abs(dx) > Math.abs(dy) && dx < 0;
+          if (!swipe) return;
+        }
+        shift = Math.min(0, dx);
+        menu.style.transform = `translateX(${shift}px)`;
+      },
+      { passive: true },
+    );
+    const endSwipe = () => {
+      if (!swipe) return resetSwipe();
+      swipe = null;
+      const width = menu.offsetWidth;
+      if (shift < -Math.min(90, width * 0.3)) {
+        menu.style.transition = reduceMotion.matches ? 'none' : 'transform .16s ease-out';
+        menu.style.transform = `translateX(${-width}px)`;
+        setTimeout(() => {
+          menu.close();
+          resetSwipe();
+        }, reduceMotion.matches ? 0 : 160);
+      } else {
+        menu.style.transition = reduceMotion.matches ? 'none' : 'transform .16s ease-out';
+        menu.style.transform = '';
+      }
+    };
+    menu.addEventListener('touchend', endSwipe);
+    menu.addEventListener('touchcancel', endSwipe);
     menu.addEventListener('change', (event) => {
       const { name, value } = event.target;
       if (name !== 'theme' && name !== 'text-size') return;
