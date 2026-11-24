@@ -35,7 +35,7 @@ async function editDocx(file, from, to) {
 
 const openSearch = async (page) => {
   if (!(await page.locator('#q').isVisible())) {
-    await page.click('.tabbar a[href$="search/"]');
+    await page.click('.bar-search');
     await page.waitForURL(/search\/$/);
   }
 };
@@ -169,7 +169,7 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
       current: document.querySelector('.tabbar a[aria-current="page"]')?.textContent.trim(),
       small: [...document.querySelectorAll('.tabbar a')].filter((a) => a.getBoundingClientRect().height < 60).length,
     }));
-    check(bar.labels.join(',') === 'Home,Search,Quick,Contacts,Location' && bar.current === 'Home' && bar.small === 0, `${name}: bottom bar with five labelled buttons, Home marked`, JSON.stringify(bar));
+    check(bar.labels.join(',') === 'Home,Sections,Call,what3words' && bar.current === 'Home' && bar.small === 0, `${name}: bottom bar with four labelled buttons, Home marked`, JSON.stringify(bar));
     check(await page.locator('#q').isVisible(), `${name}: search box on the home screen`);
     const titles = await page.$$eval('.entry-title', (els) => els.map((e) => e.textContent));
     check(titles.join('|') === [...titles].sort((a, b) => a.localeCompare(b, 'en-AU', { numeric: true, sensitivity: 'base' })).join('|'), `${name}: home entries in alphabetical order`);
@@ -199,11 +199,11 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
     await page.waitForFunction(() => document.querySelectorAll('.result').length > 0);
     check(true, `${name}: going back restores the search`);
 
-    // Search from an inner page, through the bottom bar
+    // Search from an inner page, through the header search icon
     await page.goto(base + 'safety/');
-    await page.click('.tabbar a[href$="search/"]');
+    await page.click('.bar-search');
     await page.waitForURL(/search\/$/);
-    check((await page.locator('.tabbar a[aria-current="page"]').textContent()).trim() === 'Search', `${name}: the Search button opens the Search page`);
+    check(await page.locator('#q').isVisible(), `${name}: the header search icon opens the Search page`);
     await page.fill('#q', 'hypoth');
     await page.waitForFunction(() => document.querySelectorAll('.result').length > 0);
     check(await page.locator('#content').isHidden(), `${name}: search works from inside a section`);
@@ -244,8 +244,11 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
     check(/could not be downloaded/.test(await page.locator('.prose').textContent()), `${name}: a shortcut that cannot be downloaded shows a short message`);
 
     // Bottom bar pages (offline)
-    await page.goto(base + 'quick-access/');
-    check((await page.locator('.qa-list a').count()) === homeState.quick.length, `${name}: Quick page lists the quick access pages`);
+    await page.goto(base + 'sections/');
+    const listed = await page.locator('.section-list > li').count();
+    check(listed === homeState.tiles.length && (await page.locator('.tabbar a[aria-current="page"]').textContent()).trim() === 'Sections', `${name}: Sections page lists every section`, `${listed} of ${homeState.tiles.length}`);
+    await page.fill('#filter', 'first');
+    check((await page.locator('.section-list > li:visible').count()) >= 1 && (await page.locator('.section-list > li:visible').count()) < listed, `${name}: the Sections page can be filtered`);
     await page.goto(base + 'key-contacts/');
     check((await page.locator('.contact-list a[href="tel:0882183002"]').count()) > 0, `${name}: Contacts page has the key contacts`);
     await page.goto(base + 'my-location/');

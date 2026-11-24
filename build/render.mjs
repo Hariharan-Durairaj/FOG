@@ -15,6 +15,7 @@ export const ui = {
   folder: svg('<path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'),
   doc: svg('<path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/>'),
   quick: svg('<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>'),
+  list: svg('<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/>'),
   contacts: svg('<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>'),
   location: svg('<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>'),
   share: svg('<path d="M12 15V4"/><path d="M8 8l4-4 4 4"/><path d="M6 12v7a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-7"/>'),
@@ -37,10 +38,9 @@ const rootOf = (url) => '../'.repeat(url.split('/').filter(Boolean).length);
 // Bottom bar on phones; the same pages are linked from the header on wide screens
 export const TABS = [
   { key: 'home', label: 'Home', icon: 'home', url: '' },
-  { key: 'search', label: 'Search', icon: 'search', url: 'search/' },
-  { key: 'quick', label: 'Quick', icon: 'quick', url: 'quick-access/', long: 'Quick access' },
-  { key: 'contacts', label: 'Contacts', icon: 'contacts', url: 'key-contacts/', long: 'Key contacts' },
-  { key: 'location', label: 'Location', icon: 'location', url: 'my-location/', long: 'My location' },
+  { key: 'sections', label: 'Sections', icon: 'list', url: 'sections/', long: 'All sections' },
+  { key: 'call', label: 'Call', icon: 'contacts', url: 'key-contacts/', long: 'Key contacts' },
+  { key: 'w3w', label: 'what3words', icon: 'location', url: 'my-location/', long: 'what3words' },
 ];
 const tabbar = (r, tab) =>
   `<nav class="tabbar" aria-label="Main">${TABS.map((t) => `<a href="${r}${t.url}"${t.key === tab ? ' aria-current="page"' : ''}>${ui[t.icon]}<span>${t.label}</span></a>`).join('')}</nav>`;
@@ -79,6 +79,7 @@ function shell({ url, title, bodyClass, header, main, tab = '' }) {
 ${siteLogo ? `<a class="bar-logo" href="${r}" aria-label="Home"><img src="${r}${siteLogo.src}" alt="SES" width="${siteLogo.width}" height="${siteLogo.height}"></a>` : ''}
 ${header(r)}
 ${barLinks(r, tab)}
+<a class="bar-btn bar-search" href="${r}search/" aria-label="Search">${ui.search}</a>
 <button class="bar-btn" id="install" type="button" hidden aria-label="Download app">${ui.download}</button>
 </div>
 <div class="search-bar" id="search-bar">
@@ -248,17 +249,32 @@ export function searchPage({ count }) {
   });
 }
 
-export function quickPage({ home }) {
+export function sectionsPage({ sections, docs, icons }) {
+  const byTitle = (a, b) => a.title.localeCompare(b.title, config.locale, { numeric: true, sensitivity: 'base' });
+  const rows = [...sections, ...docs].sort(byTitle);
   return shell({
-    url: 'quick-access/',
-    title: 'Quick access',
+    url: 'sections/',
+    title: 'All sections',
     bodyClass: 'tab-page',
-    tab: 'quick',
+    tab: 'sections',
     header: tabHeader,
-    main: (r) => `<div class="wrap narrow"><h1>Quick access</h1><p class="meta">The most-used pages.</p>
-${home.quick.length
-  ? `<ul class="qa-list">${home.quick.map((q) => `<li><a href="${r}${esc(q.url)}"><span class="qa-icon">${ui.quick}</span><span class="qa-title">${esc(q.title)}</span>${ui.next}</a></li>`).join('')}</ul>`
-  : '<p class="empty">No quick access pages have been chosen yet.</p>'}
+    main: (r) => `<div class="wrap narrow"><h1>All sections</h1><p class="meta">${plural(rows.length, 'section')}</p>
+<div class="filter">
+<label class="sr" for="filter">Filter sections</label>
+${ui.search}
+<input id="filter" type="search" placeholder="Filter ${plural(rows.length, 'section')}" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false">
+</div>
+<p class="empty" id="filter-empty" hidden>No sections match.</p>
+<ul class="topics section-list" id="topics">
+${rows
+  .map((s) => {
+    const icon = s.sections ? icons.get(s) : null;
+    const pic = icon?.inline ? `<span class="row-icon">${icon.inline}</span>` : icon?.src ? `<span class="row-icon"><img src="${r}${esc(icon.src)}" alt="" width="28" height="28"></span>` : `<span class="row-icon">${s.sections ? ui.folder : ui.doc}</span>`;
+    const count = s.sections && !s.direct ? `<span class="topic-count">${s.topics}</span>` : '';
+    return `<li><a href="${r}${esc(s.url)}">${pic}<span class="topic-title">${esc(s.title)}</span>${count}${ui.next}</a></li>`;
+  })
+  .join('\n')}
+</ul>
 </div>`,
   });
 }
@@ -268,7 +284,7 @@ export function contactsPage({ home }) {
     url: 'key-contacts/',
     title: 'Key contacts',
     bodyClass: 'tab-page',
-    tab: 'contacts',
+    tab: 'call',
     header: tabHeader,
     main: () => `<div class="wrap narrow"><h1>Key contacts</h1><p class="meta">Tap to call or email.</p>
 ${home.contacts.length ? `<div class="home-contacts">${contactList(home.contacts)}</div>` : '<p class="empty">No contacts have been added yet.</p>'}
@@ -280,11 +296,11 @@ export function locationPage({ w3wKey }) {
   const L = config.links;
   return shell({
     url: 'my-location/',
-    title: 'My location',
+    title: 'what3words',
     bodyClass: 'tab-page',
-    tab: 'location',
+    tab: 'w3w',
     header: tabHeader,
-    main: () => `<div class="wrap narrow"><h1>My location</h1>
+    main: () => `<div class="wrap narrow"><h1>what3words</h1>
 <section class="loc-card" aria-labelledby="pos-title">
 <h2 id="pos-title">My position</h2>
 <p class="meta">From the phone's GPS. Works without signal.</p>
