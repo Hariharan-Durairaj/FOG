@@ -119,13 +119,13 @@
     const phone = matchMedia('(max-width: 699px)');
     const setOpen = (open) => {
       document.body.classList.toggle('search-open', open);
-      toggle.setAttribute('aria-expanded', String(open));
+      toggle?.setAttribute('aria-expanded', String(open));
     };
     const show = (showResults) => {
       resultsWrap.hidden = !showResults;
       content.hidden = showResults;
     };
-    toggle.addEventListener('click', () => {
+    toggle?.addEventListener('click', () => {
       const open = !document.body.classList.contains('search-open');
       setOpen(open);
       if (open) input.focus();
@@ -265,6 +265,129 @@
     };
     addEventListener('hashchange', fromAddress);
     addEventListener('pageshow', fromAddress);
+    // The Search page opens ready to type
+    if (document.body.classList.contains('search-page')) {
+      setOpen(true);
+      if (!location.hash) input.focus();
+    }
+  }
+
+  // ---------- Bottom bar: hide it while the on-screen keyboard is open ----------
+  if (window.visualViewport) {
+    const keyboard = () => document.body.classList.toggle('kb-open', window.innerHeight - visualViewport.height > 150);
+    visualViewport.addEventListener('resize', keyboard);
+  }
+
+  // ---------- My location ----------
+  const locate = $('#locate');
+  if (locate) {
+    const result = $('#loc-result');
+    const coords = $('#loc-coords');
+    const acc = $('#loc-acc');
+    const error = $('#loc-error');
+    const share = $('#loc-share');
+    const map = $('#loc-map');
+    let text = '';
+    const fail = (message) => {
+      error.textContent = message;
+      error.hidden = false;
+      locate.disabled = false;
+      $('span', locate).textContent = 'Try again';
+    };
+    locate.addEventListener('click', () => {
+      if (!('geolocation' in navigator)) return fail('This phone or browser cannot share its location.');
+      error.hidden = true;
+      locate.disabled = true;
+      $('span', locate).textContent = 'Finding your location…';
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude.toFixed(5);
+          const lon = pos.coords.longitude.toFixed(5);
+          text = `${lat}, ${lon}`;
+          coords.textContent = text;
+          const time = new Date(pos.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          acc.textContent = `Accurate to about ${Math.round(pos.coords.accuracy)} m · ${time}`;
+          map.href = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+          share.hidden = !navigator.share;
+          result.hidden = false;
+          locate.disabled = false;
+          $('span', locate).textContent = 'Update my location';
+        },
+        (err) => {
+          if (err.code === 1) fail('Location is turned off for this app. Allow location in your phone settings, then try again.');
+          else if (err.code === 3) fail('Could not get a GPS fix in time. Move into the open and try again.');
+          else fail('Your location is not available right now. Try again in a moment.');
+        },
+        { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
+      );
+    });
+    $('#loc-copy').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(text);
+        toast('Location copied.');
+      } catch {
+        toast(text, { keep: false });
+      }
+    });
+    share.addEventListener('click', () => navigator.share?.({ title: 'My location', text: `My location: ${text}` }).catch(() => {}));
+  }
+
+  // App buttons go to the right store for the phone
+  const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/.test(navigator.userAgent);
+  for (const a of document.querySelectorAll('.app-links a')) {
+    if (isIos && a.dataset.ios) a.href = a.dataset.ios;
+    else if (isAndroid && a.dataset.android) a.href = a.dataset.android;
+  }
+
+  // ---------- Find a what3words address ----------
+  const w3wBox = $('#w3w-find');
+  if (w3wBox) {
+    const input = $('#w3w');
+    const list = $('#w3w-results');
+    const status = $('#w3w-status');
+    let timer;
+    let ticket = 0;
+    const clean = (v) => v.trim().toLowerCase().replace(/^(https?:\/\/)?(w3w\.co\/|what3words\.com\/)/, '').replace(/^\/+/, '').replace(/[\s,]+/g, '.');
+    const lookup = async () => {
+      const words = clean(input.value);
+      const mine = ++ticket;
+      list.innerHTML = '';
+      if (!/^[^.]+\.[^.]+\.[^.]+$/.test(words)) {
+        status.textContent = words ? 'Type all three words, separated by dots.' : '';
+        return;
+      }
+      if (!navigator.onLine) {
+        status.textContent = 'Needs signal. You can also open the what3words app, which works offline.';
+        return;
+      }
+      status.textContent = 'Looking up…';
+      try {
+        // Only the typed words and the country are sent; never the phone's position
+        const url = `https://api.what3words.com/v3/autosuggest?input=${encodeURIComponent(words)}&clip-to-country=AU&n-results=3&key=${encodeURIComponent(w3wBox.dataset.key)}`;
+        const data = await (await fetch(url)).json();
+        if (mine !== ticket) return;
+        const found = data.suggestions || [];
+        if (data.error) status.textContent = 'The what3words lookup is not available right now.';
+        else status.textContent = found.length ? 'Tap an address to open it on the what3words map.' : 'No matching what3words address in Australia.';
+        list.innerHTML = found
+          .map((f) => `<li><a href="https://w3w.co/${escapeHtml(f.words)}" target="_blank" rel="noopener noreferrer"><b>///${escapeHtml(f.words)}</b><small>Near ${escapeHtml(f.nearestPlace || '')}</small></a></li>`)
+          .join('');
+      } catch {
+        if (mine === ticket) status.textContent = 'Could not reach what3words. Check your signal and try again.';
+      }
+    };
+    input.addEventListener('input', () => {
+      // The /// is already shown in front of the box
+      if (/^\s*\/+/.test(input.value)) input.value = input.value.replace(/^\s*\/+/, '');
+      clearTimeout(timer);
+      timer = setTimeout(lookup, 350);
+    });
+    $('#w3w-form').addEventListener('submit', (event) => {
+      event.preventDefault();
+      clearTimeout(timer);
+      lookup();
+    });
   }
 
   // ---------- Filter (section) ----------

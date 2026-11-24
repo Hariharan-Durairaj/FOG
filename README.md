@@ -63,11 +63,17 @@ Settings for both services are in `/etc/fog/fog.env`. Content, the built site an
 
 After changing app files in `/opt/fog`, the next sync rebuilds the site by itself.
 
+## Bottom bar and what3words
+
+On phones and tablets a bottom bar links Home, Search, Quick access, Key contacts and My location; on wide screens the same pages are linked from the header. Their addresses (`search/`, `quick-access/`, `key-contacts/`, `my-location/`) are reserved, so a section can never take them.
+
+**My location** shows the phone's GPS position (works offline) and links to the what3words and Emergency+ apps (links in `config.mjs`). The **Find a what3words address** box appears only when the build has a what3words API key in the environment variable `FOG_W3W_KEY`. It uses the AutoSuggest service, limited to Australia; only the typed words are sent, never the phone's position. A key in a public website can be read by anyone, so keep it out of this repository: on the preview it comes from `~/.fog-w3w.env`; for GitHub Pages it would be a repository secret passed to the build step.
+
 ## Local preview (CT 134)
 
 The development container keeps its own copy of the site that follows OneDrive, without publishing anything:
 
-- `fog-preview-sync.timer` runs `bin/sync.sh` every 15 minutes (content in `data/content`, site in `data/dist`). It rebuilds only when OneDrive or the app code changed.
+- `fog-preview-sync.timer` runs `bin/sync.sh` every 15 minutes (with the what3words key from `~/.fog-w3w.env`) (content in `data/content`, site in `data/dist`). It rebuilds only when OneDrive or the app code changed.
 - `fog-preview-web.service` serves `data/dist` on `127.0.0.1:8043`, seen at `https://code.hariharandurairaj.uk/proxy/8043/`.
 - Run a sync now: `sudo systemctl start fog-preview-sync.service`; log: `journalctl -u fog-preview-sync.service`.
 

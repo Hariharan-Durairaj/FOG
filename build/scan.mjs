@@ -31,7 +31,8 @@ const inOrder = (a, b) =>
 export async function scan(root) {
   async function walk(dir, parent) {
     const entries = (await fs.readdir(dir, { withFileTypes: true })).filter((e) => !ignored(e.name)).sort(inOrder);
-    const slugs = new Set();
+    // The bottom bar pages own these addresses at the top level
+    const slugs = new Set(parent ? [] : ['search', 'quick-access', 'key-contacts', 'my-location']);
     const node = {
       title: parent ? displayName(path.basename(dir)) : '',
       dir,

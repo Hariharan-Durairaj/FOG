@@ -9,7 +9,7 @@ import { convertPdf } from './pdf.mjs';
 import { convertLink } from './link.mjs';
 import { buildHome } from './home.mjs';
 import { sectionIcon, writeAppIcons } from './icons.mjs';
-import { setSiteUpdated, setSiteLogo, homePage, sectionPage, docPage, notFoundPage, manifest } from './render.mjs';
+import { setSiteUpdated, setSiteLogo, homePage, searchPage, quickPage, contactsPage, locationPage, sectionPage, docPage, notFoundPage, manifest } from './render.mjs';
 import { formatDate, hash } from './util.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -119,6 +119,10 @@ setSiteUpdated(docs.length ? dateOf(latest) : '');
 setSiteLogo((await writeAppIcons(workDir)).logo);
 const home = await buildHome(tree.homeDir, { mediaDir, docs, sections, warn });
 await write('index.html', homePage({ sections: tree.sections, docs: tree.docs, icons, home }));
+await write('search/index.html', searchPage({ count: docs.length }));
+await write('quick-access/index.html', quickPage({ home }));
+await write('key-contacts/index.html', contactsPage({ home }));
+await write('my-location/index.html', locationPage({ w3wKey: (process.env.FOG_W3W_KEY || '').trim() }));
 
 for (const section of sections) {
   if (section.direct) {

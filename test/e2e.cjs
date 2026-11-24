@@ -34,7 +34,10 @@ async function editDocx(file, from, to) {
 }
 
 const openSearch = async (page) => {
-  if (!(await page.locator('#q').isVisible())) await page.click('#search-toggle');
+  if (!(await page.locator('#q').isVisible())) {
+    await page.click('.tabbar a[href$="search/"]');
+    await page.waitForURL(/search\/$/);
+  }
 };
 const saved = (page) => page.waitForFunction(() => /now works without/.test(document.getElementById('toast').textContent), null, { timeout: 60000 });
 
@@ -161,8 +164,13 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
 
     // Search
     await page.goto(base);
-    check(await page.locator('#search-toggle').isVisible(), `${name}: search icon in the header`);
-    check(await page.locator('#q').isHidden(), `${name}: search bar stays hidden until the icon is tapped`);
+    const bar = await page.evaluate(() => ({
+      labels: [...document.querySelectorAll('.tabbar a')].map((a) => a.textContent.trim()),
+      current: document.querySelector('.tabbar a[aria-current="page"]')?.textContent.trim(),
+      small: [...document.querySelectorAll('.tabbar a')].filter((a) => a.getBoundingClientRect().height < 60).length,
+    }));
+    check(bar.labels.join(',') === 'Home,Search,Quick,Contacts,Location' && bar.current === 'Home' && bar.small === 0, `${name}: bottom bar with five labelled buttons, Home marked`, JSON.stringify(bar));
+    check(await page.locator('#q').isVisible(), `${name}: search box on the home screen`);
     const titles = await page.$$eval('.entry-title', (els) => els.map((e) => e.textContent));
     check(titles.join('|') === [...titles].sort((a, b) => a.localeCompare(b, 'en-AU', { numeric: true, sensitivity: 'base' })).join('|'), `${name}: home entries in alphabetical order`);
     const search = async (q) => {
@@ -191,9 +199,11 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
     await page.waitForFunction(() => document.querySelectorAll('.result').length > 0);
     check(true, `${name}: going back restores the search`);
 
-    // Search from an inner page
+    // Search from an inner page, through the bottom bar
     await page.goto(base + 'safety/');
-    await page.click('#search-toggle');
+    await page.click('.tabbar a[href$="search/"]');
+    await page.waitForURL(/search\/$/);
+    check((await page.locator('.tabbar a[aria-current="page"]').textContent()).trim() === 'Search', `${name}: the Search button opens the Search page`);
     await page.fill('#q', 'hypoth');
     await page.waitForFunction(() => document.querySelectorAll('.result').length > 0);
     check(await page.locator('#content').isHidden(), `${name}: search works from inside a section`);
@@ -232,6 +242,14 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
     check((await page.locator('.pdf-open a').textContent()) === 'Open the website', `${name}: a shortcut to a website shows an open button`);
     await page.goto(base + pages.find((p) => p.includes('broken-link')));
     check(/could not be downloaded/.test(await page.locator('.prose').textContent()), `${name}: a shortcut that cannot be downloaded shows a short message`);
+
+    // Bottom bar pages (offline)
+    await page.goto(base + 'quick-access/');
+    check((await page.locator('.qa-list a').count()) === homeState.quick.length, `${name}: Quick page lists the quick access pages`);
+    await page.goto(base + 'key-contacts/');
+    check((await page.locator('.contact-list a[href="tel:0882183002"]').count()) > 0, `${name}: Contacts page has the key contacts`);
+    await page.goto(base + 'my-location/');
+    check((await page.locator('#locate').isVisible()) && (await page.locator('#w3w').count()) === 0, `${name}: Location page works without a what3words key (lookup hidden)`);
 
     // Section filter
     await page.goto(base + 'first-aid/');
@@ -341,6 +359,7 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
     await dpage.goto(base);
     await saved(dpage);
     check(await dpage.locator('#install').isHidden(), 'download icon is hidden on desktop');
+    check((await dpage.locator('.tabbar').isHidden()) && (await dpage.locator('.bar-links a').count()) === 3, 'desktop: header links instead of the bottom bar');
     await dpage.goto(base + 'first-aid/burns/');
     const pos = await dpage.evaluate(() => ({ bar: document.querySelector('.bar-in').getBoundingClientRect().bottom, search: document.getElementById('q').getBoundingClientRect().top }));
     check((await dpage.locator('#q').isVisible()) && (await dpage.locator('#search-toggle').isHidden()) && pos.search > pos.bar, 'desktop: search bar below the header on every page, no search icon', JSON.stringify(pos));
@@ -372,6 +391,25 @@ const saved = (page) => page.waitForFunction(() => /now works without/.test(docu
     await ppage.goto(base);
     check(await ppage.locator('#install').isHidden(), 'download icon is hidden inside the installed app');
     await phone.close();
+  }
+
+  // ----- My location -----
+  {
+    const allowed = await browser.newContext({ ...devices['Pixel 7'], geolocation: { latitude: -34.9285, longitude: 138.6007, accuracy: 12 }, permissions: ['geolocation'] });
+    const p = await allowed.newPage();
+    await p.goto(base + 'my-location/');
+    await p.click('#locate');
+    await p.waitForSelector('#loc-result:not([hidden])');
+    const shown = { coords: await p.locator('#loc-coords').textContent(), acc: await p.locator('#loc-acc').textContent() };
+    check(shown.coords === '-34.92850, 138.60070' && /about 12 m/.test(shown.acc), 'location: shows GPS coordinates and accuracy', JSON.stringify(shown));
+    await allowed.close();
+    const denied = await browser.newContext({ ...devices['Pixel 7'] });
+    const d = await denied.newPage();
+    await d.goto(base + 'my-location/');
+    await d.click('#locate');
+    await d.waitForSelector('#loc-error:not([hidden])', { timeout: 30000 });
+    check(/turned off|not available|GPS fix/.test(await d.locator('#loc-error').textContent()), 'location: a plain message when location is not allowed');
+    await denied.close();
   }
 
   // ----- Update -----

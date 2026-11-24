@@ -14,6 +14,9 @@ export const ui = {
   offline: svg('<path d="M3 3l18 18"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M5 13a10 10 0 0 1 3-2M19 13a10 10 0 0 0-5-2.7"/><path d="M2 9.5a15 15 0 0 1 4-2.6M22 9.5A15 15 0 0 0 10.5 5"/><path d="M12 20h.01"/>'),
   folder: svg('<path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'),
   doc: svg('<path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/>'),
+  quick: svg('<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>'),
+  contacts: svg('<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>'),
+  location: svg('<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>'),
   share: svg('<path d="M12 15V4"/><path d="M8 8l4-4 4 4"/><path d="M6 12v7a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-7"/>'),
 };
 
@@ -31,7 +34,20 @@ export const setSiteUpdated = (text) => (siteUpdated = text);
 
 const rootOf = (url) => '../'.repeat(url.split('/').filter(Boolean).length);
 
-function shell({ url, title, bodyClass, header, main }) {
+// Bottom bar on phones; the same pages are linked from the header on wide screens
+export const TABS = [
+  { key: 'home', label: 'Home', icon: 'home', url: '' },
+  { key: 'search', label: 'Search', icon: 'search', url: 'search/' },
+  { key: 'quick', label: 'Quick', icon: 'quick', url: 'quick-access/', long: 'Quick access' },
+  { key: 'contacts', label: 'Contacts', icon: 'contacts', url: 'key-contacts/', long: 'Key contacts' },
+  { key: 'location', label: 'Location', icon: 'location', url: 'my-location/', long: 'My location' },
+];
+const tabbar = (r, tab) =>
+  `<nav class="tabbar" aria-label="Main">${TABS.map((t) => `<a href="${r}${t.url}"${t.key === tab ? ' aria-current="page"' : ''}>${ui[t.icon]}<span>${t.label}</span></a>`).join('')}</nav>`;
+const barLinks = (r, tab) =>
+  `<nav class="bar-links" aria-label="Shortcuts">${TABS.filter((t) => t.long).map((t) => `<a href="${r}${t.url}"${t.key === tab ? ' aria-current="page"' : ''}>${esc(t.long)}</a>`).join('')}</nav>`;
+
+function shell({ url, title, bodyClass, header, main, tab = '' }) {
   const root = rootOf(url);
   const r = root || './';
   const pageTitle = title ? `${title} · ${config.siteName}` : config.siteName;
@@ -62,7 +78,7 @@ function shell({ url, title, bodyClass, header, main }) {
 <div class="bar-in">
 ${siteLogo ? `<a class="bar-logo" href="${r}" aria-label="Home"><img src="${r}${siteLogo.src}" alt="SES" width="${siteLogo.width}" height="${siteLogo.height}"></a>` : ''}
 ${header(r)}
-<button class="bar-btn search-toggle" id="search-toggle" type="button" aria-label="Search" aria-controls="search-bar" aria-expanded="false">${ui.search}</button>
+${barLinks(r, tab)}
 <button class="bar-btn" id="install" type="button" hidden aria-label="Download app">${ui.download}</button>
 </div>
 <div class="search-bar" id="search-bar">
@@ -82,6 +98,7 @@ ${main(r)}
 </div>
 </main>
 <footer class="foot"><div class="foot-in"><span>${esc(config.siteName)}</span>${siteUpdated ? `<span>Updated ${esc(siteUpdated)}</span>` : ''}</div></footer>
+${tabbar(r, tab)}
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 </body>
 </html>
@@ -128,10 +145,24 @@ function desktopRows(items, sizeOf) {
   return out;
 }
 
+const CALL = svg('<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>');
+const MAIL = svg('<rect x="3" y="5" width="18" height="14"/><path d="m3 6 9 7 9-7"/>');
+function contactList(contacts) {
+  return `<ul class="contact-list">${contacts
+    .map(
+      (c) =>
+        `<li><span class="contact-name">${esc(c.name)}${c.email ? `<small>${esc(c.email)}</small>` : ''}${c.note ? `<small>${esc(c.note)}</small>` : ''}</span>${
+          c.tel ? `<a class="contact-number" href="tel:${esc(c.tel)}">${esc(c.number)}</a>` : ''
+        }<span class="contact-actions">${c.tel ? `<a class="contact-btn" href="tel:${esc(c.tel)}" aria-label="Call ${esc(c.name)}, ${esc(c.number)}">${CALL}</a>` : ''}${
+          c.email ? `<a class="contact-btn contact-mail" href="mailto:${esc(c.email)}" aria-label="Email ${esc(c.name)}">${MAIL}</a>` : ''
+        }</span></li>`,
+    )
+    .join('')}</ul>`;
+}
+
 // Highlighted cards, quick access links and key contacts from the home page folder
 function homeExtras(home) {
   if (!home) return '';
-  const call = svg('<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>');
   const warnIcon = svg('<path d="M12 3 2 21h20z"/><path d="M12 10v5"/><path d="M12 18h.01"/>');
   const cards = home.cards
     .map(
@@ -143,18 +174,8 @@ function homeExtras(home) {
         .map((q) => `<li><a href="${esc(q.url)}">${esc(q.title)}</a></li>`)
         .join('')}</ul></nav>`
     : '';
-  const mail = svg('<rect x="3" y="5" width="18" height="14"/><path d="m3 6 9 7 9-7"/>');
   const contacts = home.contacts.length
-    ? `<section class="home-contacts" aria-labelledby="contacts-title"><h2 class="kicker" id="contacts-title">Key contacts</h2><ul>${home.contacts
-        .map(
-          (c) =>
-            `<li><span class="contact-name">${esc(c.name)}${c.email ? `<small>${esc(c.email)}</small>` : ''}${c.note ? `<small>${esc(c.note)}</small>` : ''}</span>${
-              c.tel ? `<a class="contact-number" href="tel:${esc(c.tel)}">${esc(c.number)}</a>` : ''
-            }<span class="contact-actions">${c.tel ? `<a class="contact-btn" href="tel:${esc(c.tel)}" aria-label="Call ${esc(c.name)}">${call}</a>` : ''}${
-              c.email ? `<a class="contact-btn contact-mail" href="mailto:${esc(c.email)}" aria-label="Email ${esc(c.name)}">${mail}</a>` : ''
-            }</span></li>`,
-        )
-        .join('')}</ul></section>`
+    ? `<section class="home-contacts" aria-labelledby="contacts-title"><h2 class="kicker" id="contacts-title">Key contacts</h2>${contactList(home.contacts)}</section>`
     : '';
   if (!cards && !quick && !contacts) return '';
   return `<div class="home-extras">
@@ -200,6 +221,7 @@ export function homePage({ sections, docs, icons, home }) {
     url: '',
     title: '',
     bodyClass: 'home',
+    tab: 'home',
     header: () => `<span class="brand">${esc(config.shortName)}</span><span class="bar-gap"></span>`,
     main: () => `<div class="wrap">
 <h1 class="sr">${esc(config.siteName)}</h1>
@@ -207,6 +229,88 @@ ${homeExtras(home)}
 <ul class="entries" id="entries">
 ${desktopRows([...sections.map((x) => [x, entry(x)]), ...docs.map((x) => [x, docEntry(x)])], sizeOf).join('\n')}
 </ul>
+</div>`,
+  });
+}
+
+// ---------- Bottom bar pages ----------
+
+const tabHeader = () => `<span class="brand">${esc(config.shortName)}</span><span class="bar-gap"></span>`;
+
+export function searchPage({ count }) {
+  return shell({
+    url: 'search/',
+    title: 'Search',
+    bodyClass: 'search-page',
+    tab: 'search',
+    header: tabHeader,
+    main: () => `<div class="wrap narrow"><h1>Search</h1><p class="meta">Search all ${count} pages by title or text. Works without signal.</p></div>`,
+  });
+}
+
+export function quickPage({ home }) {
+  return shell({
+    url: 'quick-access/',
+    title: 'Quick access',
+    bodyClass: 'tab-page',
+    tab: 'quick',
+    header: tabHeader,
+    main: (r) => `<div class="wrap narrow"><h1>Quick access</h1><p class="meta">The most-used pages.</p>
+${home.quick.length
+  ? `<ul class="qa-list">${home.quick.map((q) => `<li><a href="${r}${esc(q.url)}"><span class="qa-icon">${ui.quick}</span><span class="qa-title">${esc(q.title)}</span>${ui.next}</a></li>`).join('')}</ul>`
+  : '<p class="empty">No quick access pages have been chosen yet.</p>'}
+</div>`,
+  });
+}
+
+export function contactsPage({ home }) {
+  return shell({
+    url: 'key-contacts/',
+    title: 'Key contacts',
+    bodyClass: 'tab-page',
+    tab: 'contacts',
+    header: tabHeader,
+    main: () => `<div class="wrap narrow"><h1>Key contacts</h1><p class="meta">Tap to call or email.</p>
+${home.contacts.length ? `<div class="home-contacts">${contactList(home.contacts)}</div>` : '<p class="empty">No contacts have been added yet.</p>'}
+</div>`,
+  });
+}
+
+export function locationPage({ w3wKey }) {
+  const L = config.links;
+  return shell({
+    url: 'my-location/',
+    title: 'My location',
+    bodyClass: 'tab-page',
+    tab: 'location',
+    header: tabHeader,
+    main: () => `<div class="wrap narrow"><h1>My location</h1>
+<section class="loc-card" aria-labelledby="pos-title">
+<h2 id="pos-title">My position</h2>
+<p class="meta">From the phone's GPS. Works without signal.</p>
+<button class="big-btn" id="locate" type="button">${ui.location}<span>Show my location</span></button>
+<div id="loc-result" hidden>
+<p class="loc-coords" id="loc-coords"></p>
+<p class="meta" id="loc-acc"></p>
+<div class="loc-actions"><button type="button" class="line-btn" id="loc-copy">Copy</button><button type="button" class="line-btn" id="loc-share" hidden>Share</button><a class="line-btn" id="loc-map" target="_blank" rel="noopener noreferrer">Open in Maps</a></div>
+</div>
+<p class="loc-error" id="loc-error" role="alert" hidden></p>
+</section>
+<section class="loc-card" aria-labelledby="w3w-mine-title">
+<h2 id="w3w-mine-title">My what3words address</h2>
+<p>To give 000 your exact spot, open one of these apps and read out the three words it shows. The what3words app works without signal.</p>
+<div class="app-links">
+<a class="line-btn" data-ios="${esc(L.what3words.ios)}" data-android="${esc(L.what3words.android)}" href="${esc(L.what3words.web)}" target="_blank" rel="noopener noreferrer">what3words app</a>
+<a class="line-btn" data-ios="${esc(L.emergencyPlus.ios)}" data-android="${esc(L.emergencyPlus.android)}" href="${esc(L.emergencyPlus.web)}" target="_blank" rel="noopener noreferrer">Emergency+ app</a>
+</div>
+</section>
+${w3wKey ? `<section class="loc-card" aria-labelledby="w3w-find-title" id="w3w-find" data-key="${esc(w3wKey)}">
+<h2 id="w3w-find-title">Find a what3words address</h2>
+<p>Type the three words you were given, for example from a job or a caller. Needs signal.</p>
+<form class="w3w-form" id="w3w-form" autocomplete="off"><label class="sr" for="w3w">what3words address</label><span class="w3w-prefix" aria-hidden="true">///</span><input id="w3w" type="text" inputmode="text" placeholder="word.word.word" autocapitalize="off" spellcheck="false" enterkeyhint="search"></form>
+<p class="meta" id="w3w-status" aria-live="polite"></p>
+<ul class="w3w-results" id="w3w-results"></ul>
+</section>` : ''}
 </div>`,
   });
 }
