@@ -116,7 +116,8 @@ const parentOf = (section) => ({ url: section.url, title: section.title, trail: 
 const latest = docs.reduce((max, d) => (d.mtime > max ? d.mtime : max), new Date(0));
 
 setSiteUpdated(docs.length ? dateOf(latest) : '');
-setSiteLogo((await writeAppIcons(workDir)).logo);
+const brandLogos = await writeAppIcons(workDir);
+setSiteLogo(brandLogos.logo, brandLogos.govLogo);
 const home = await buildHome(tree.homeDir, { mediaDir, docs, sections, warn });
 await write('index.html', homePage({ sections: tree.sections, docs: tree.docs, icons, home }));
 await write('search/index.html', searchPage({ count: docs.length }));

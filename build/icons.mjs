@@ -82,8 +82,18 @@ export async function sectionIcon(file, outDir) {
 //   fog-app.svg            app icon (rounded)
 //   fog-app-square.svg     app icon for iPhone (the phone rounds the corners)
 //   fog-app-maskable.svg   app icon for Android icon shapes (content inside the safe circle)
-//   ses-logo-white.svg     header logo, white version for the dark header
+//   ses-logo-white.svg     SES logo, white, for the navy header and footer
+//                          (its viewBox already includes the clear space of one checker square)
+//   gov-sa-logo-white.svg  Government of South Australia logo, white, for the navy footer (optional)
 const brand = (name) => new URL(`../src/brand/${name}`, import.meta.url);
+
+// Copies an SVG logo to assets/ and returns its address and size at the given height.
+async function svgLogo(outDir, name, file, height) {
+  const svg = await fs.readFile(brand(name), 'utf8');
+  await fs.writeFile(path.join(outDir, 'assets', file), svg);
+  const [, w, h] = svg.match(/viewBox="[\d.-]+ [\d.-]+ ([\d.]+) ([\d.]+)"/);
+  return { src: `assets/${file}`, width: Math.round((w / h) * height), height };
+}
 
 export async function writeAppIcons(outDir) {
   const dir = path.join(outDir, 'icons');
@@ -104,9 +114,8 @@ export async function writeAppIcons(outDir) {
   ]);
 
   await fs.mkdir(path.join(outDir, 'assets'), { recursive: true });
-  const logo = await fs.readFile(brand('ses-logo-white.svg'), 'utf8');
-  await fs.writeFile(path.join(outDir, 'assets', 'logo.svg'), logo);
-  const [, w, h] = logo.match(/viewBox="[\d.-]+ [\d.-]+ ([\d.]+) ([\d.]+)"/);
-  const height = 44;
-  return { logo: { src: 'assets/logo.svg', width: Math.round((w / h) * height), height } };
+  const logo = await svgLogo(outDir, 'ses-logo-white.svg', 'logo.svg', 56);
+  const hasGov = await fs.access(brand('gov-sa-logo-white.svg')).then(() => true, () => false);
+  const govLogo = hasGov ? await svgLogo(outDir, 'gov-sa-logo-white.svg', 'gov-sa-logo.svg', 84) : null;
+  return { logo, govLogo };
 }

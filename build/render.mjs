@@ -30,7 +30,11 @@ const iconHtml = (icon, root) =>
 
 let siteUpdated = '';
 let siteLogo = null;
-export const setSiteLogo = (logo) => (siteLogo = logo);
+let govLogo = null;
+export const setSiteLogo = (logo, gov = null) => {
+  siteLogo = logo;
+  govLogo = gov;
+};
 export const setSiteUpdated = (text) => (siteUpdated = text);
 
 const rootOf = (url) => '../'.repeat(url.split('/').filter(Boolean).length);
@@ -98,7 +102,12 @@ ${ui.search}
 ${main(r)}
 </div>
 </main>
-<footer class="foot"><div class="foot-in"><span>${esc(config.siteName)}</span>${siteUpdated ? `<span>Updated ${esc(siteUpdated)}</span>` : ''}</div></footer>
+<footer class="foot"><div class="foot-in">
+<div class="foot-logos">${siteLogo ? `<img class="foot-ses" src="${r}${siteLogo.src}" alt="SA State Emergency Service" width="${siteLogo.width}" height="${siteLogo.height}">` : ''}${
+    govLogo ? `<img class="foot-gov" src="${r}${govLogo.src}" alt="Government of South Australia" width="${govLogo.width}" height="${govLogo.height}">` : ''
+  }</div>
+<p class="foot-text"><span>${esc(config.description)}</span>${siteUpdated ? `<span>Updated ${esc(siteUpdated)}</span>` : ''}</p>
+</div></footer>
 ${tabbar(r, tab)}
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 </body>
@@ -223,7 +232,7 @@ export function homePage({ sections, docs, icons, home }) {
     title: '',
     bodyClass: 'home',
     tab: 'home',
-    header: () => `<span class="brand">${esc(config.shortName)}</span><span class="bar-gap"></span>`,
+    header: () => `<span class="brand">${esc(config.headerName || config.shortName)}</span><span class="bar-gap"></span>`,
     main: () => `<div class="wrap">
 <h1 class="sr">${esc(config.siteName)}</h1>
 ${homeExtras(home)}
@@ -236,7 +245,7 @@ ${desktopRows([...sections.map((x) => [x, entry(x)]), ...docs.map((x) => [x, doc
 
 // ---------- Bottom bar pages ----------
 
-const tabHeader = () => `<span class="brand">${esc(config.shortName)}</span><span class="bar-gap"></span>`;
+const tabHeader = () => `<span class="brand">${esc(config.headerName || config.shortName)}</span><span class="bar-gap"></span>`;
 
 export function searchPage({ count }) {
   return shell({
@@ -402,13 +411,13 @@ export function notFoundPage(basePath) {
 <title>Page not found · ${esc(config.siteName)}</title>
 <meta name="theme-color" content="${config.colours.theme}">
 <style>
-body{margin:0;min-height:100vh;display:grid;place-items:center;background:${config.colours.background};color:#14213d;font:17px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:${config.colours.background};color:#1e3d78;font:17px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 main{padding:24px;text-align:center;max-width:26rem}
 p.name{margin:0 0 24px;font-weight:700;letter-spacing:.04em;font-size:.85rem;color:#4a5670}
 h1{margin:0 0 8px;font-size:1.6rem}
 p{margin:0 0 28px;color:#3b4760}
-a{display:inline-block;padding:14px 28px;background:#14213d;color:#fff;font-weight:600;text-decoration:none}
-a:focus-visible{outline:3px solid #f76707;outline-offset:3px}
+a{display:inline-block;padding:14px 28px;background:#1e3d78;color:#fff;font-weight:600;text-decoration:none}
+a:focus-visible{outline:3px solid #d95700;outline-offset:3px}
 </style>
 </head>
 <body>

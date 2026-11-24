@@ -1,7 +1,8 @@
 // All site settings live here.
 export default {
   siteName: 'SASES FOG',
-  shortName: 'FOG',
+  shortName: 'FOG', // name under the app icon on the home screen (keep it short)
+  headerName: 'Field Operations Guide', // shown next to the SES logo in the header
   description: 'SASES Field Operations Guide',
 
   // OneDrive folder that holds the content (used by bin/sync.sh).
@@ -56,5 +57,5 @@ export default {
   // The what3words address lookup appears only when the build has the key in the
   // environment variable FOG_W3W_KEY (never store the key in this file).
 
-  colours: { theme: '#14213d', background: '#f5f3ef' },
+  colours: { theme: '#1e3d78', background: '#f4f6fa' }, // SES Navy (brand guide: #1E3D78) and the page background
 };

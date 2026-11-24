@@ -4,7 +4,8 @@ Field Operations Guide as an installable web app. Content is managed in a OneDri
 
 - Editors: see [docs/EDITOR-GUIDE.md](docs/EDITOR-GUIDE.md).
 - All settings (site name, entry sizes, time zone, OneDrive folder name, colours): [`config.mjs`](config.mjs).
-- Logos: `src/brand/` holds the browser tab icon (`fog-tab.svg`), the app icons (`fog-app*.svg`) and the header logo (`ses-logo-white.svg`). Replace a file with one of the same name and rebuild.
+- Logos: `src/brand/` holds the browser tab icon (`fog-tab.svg`), the app icons (`fog-app*.svg`), the SES logo for the header and footer (`ses-logo-white.svg`, white, with the brand clear space of one checker square built into its viewBox) and the Government of South Australia logo for the footer (`gov-sa-logo-white.svg`, white; leave it out to hide it). Replace a file with one of the same name and rebuild.
+- Colours follow the SASES brand guide: SES Navy `#1E3D78` and SES Orange `#FF6600` (`src/app.css` and `config.mjs`).
 
 ## Publishing with GitHub Pages
 
